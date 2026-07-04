@@ -1,5 +1,12 @@
 # WhisprFlow 
 
+![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)
+![CUDA](https://img.shields.io/badge/CUDA-GPU%20accelerated-76B900?logo=nvidia&logoColor=white)
+![Whisper](https://img.shields.io/badge/faster--whisper-large--v3--turbo-412991)
+![Ollama](https://img.shields.io/badge/Ollama-qwen3:4b--instruct-000000?logo=ollama&logoColor=white)
+![Platform](https://img.shields.io/badge/platform-Windows-0078D6?logo=windows&logoColor=white)
+![License](https://img.shields.io/badge/local--first-100%25%20offline-success)
+
 A local, private clone of [Wispr Flow](https://wisprflow.ai). Hold a hotkey, speak,
 release, and clean, formatted text is typed into whatever app you're focused on.
 No cloud, no subscription, no audio ever leaves your machine.
