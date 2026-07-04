@@ -304,14 +304,57 @@ def _finish(audio: np.ndarray, app: str) -> None:
 
 # ---------------------------------------------------------------- UI
 
-PILL = "#1b1b21"
-BARS = "#ececf2"
-DIM = "#63636e"
-ACCENT = "#8b7cf8"
-TRANSKEY = "#010203"  # color-keyed transparent (click-through on Windows)
+TRANSKEY = "#010203"        # color-keyed transparent (click-through on Windows)
+CAP_TOP = (0xFE, 0xFE, 0xFF)    # near-white surface, subtly lit from the top...
+CAP_BOT = (0xF3, 0xF3, 0xF8)    # ...to a hair darker at the bottom = soft material
+CAP_BORDER = (0xE7, 0xE7, 0xEE)  # 1px hairline (the only edge, since we can't shadow)
+BAR_EDGE = (0x6C, 0x5C, 0xF6)   # accent base (matches the app icon)
+BAR_CENTER = (0x4F, 0x3F, 0xD1)  # deeper toward the middle
+DOT_DIM = (0x86, 0x86, 0x92)    # neutral "waiting" grey, not a competing accent
+DOT_ACCENT = (0x6C, 0x5C, 0xF6)  # same accent family as the bars
+PILL_H = 28
+N_BARS, BAR_STEP = 19, 9
+
+
+def _hx(rgb):
+    return "#%02x%02x%02x" % rgb
+
+
+def _mix(a, b, t):
+    return tuple(round(a[i] + (b[i] - a[i]) * t) for i in range(3))
+
+
+def _capsule(canvas, cx, cy, w, h):
+    """A true stadium (fully rounded ends) with a subtle vertical gradient and a 1px
+    hairline border, drawn as per-row scanlines so the rounded ends stay crisp."""
+    def scan(width, height, top, bot):
+        r = height / 2.0
+        xl0, xr0 = cx - width / 2.0 + r, cx + width / 2.0 - r
+        for y in range(int(round(cy - r)), int(round(cy + r)) + 1):
+            dy = y - cy
+            dx = math.sqrt(max(0.0, r * r - dy * dy))
+            t = (dy + r) / (2 * r) if r else 0
+            canvas.create_line(xl0 - dx, y, xr0 + dx, y, fill=_hx(_mix(top, bot, t)))
+    scan(w, h, CAP_BORDER, CAP_BORDER)        # border underlay (solid)
+    scan(w - 2, h - 2, CAP_TOP, CAP_BOT)      # gradient fill, inset 1px -> ring
 
 
 def run_ui() -> None:
+    import ctypes
+    try:  # render at true pixels on high-DPI displays instead of being upscaled/blurry
+        ctypes.windll.shcore.SetProcessDpiAwareness(1)
+    except Exception:
+        try:
+            ctypes.windll.user32.SetProcessDPIAware()
+        except Exception:
+            pass
+    try:  # respect the Windows "show animations" accessibility setting
+        _anim = ctypes.c_int()
+        ctypes.windll.user32.SystemParametersInfoW(0x1042, 0, ctypes.byref(_anim), 0)
+        reduced = _anim.value == 0
+    except Exception:
+        reduced = False
+
     W, H, CY = 260, 56, 28
     root = tk.Tk()
     root.overrideredirect(True)
@@ -322,39 +365,48 @@ def run_ui() -> None:
     canvas = tk.Canvas(root, width=W, height=H, bg=TRANSKEY, highlightthickness=0)
     canvas.pack()
 
-    def pill(w):
-        x0 = (W - w) / 2
-        canvas.create_line(x0 + 14, CY, x0 + w - 14, CY,
-                           width=28, capstyle="round", fill=PILL)
+    bar_h = [3.0] * N_BARS  # persistent heights so bars ease toward targets, not snap
 
-    def dots(color, pulse):
+    def dots(rgb, pulse):
+        color = _hx(rgb)
         t = time.time()
         for i in (-1, 0, 1):
             r = 3 + (2 * abs(math.sin(t * 5 + (i + 1) * 0.9)) if pulse else 0)
             x = W / 2 + i * 13
             canvas.create_oval(x - r, CY - r, x + r, CY + r, fill=color, outline="")
 
+    def bars():
+        now = time.time()
+        vals = list(levels)[-N_BARS:]
+        vals = [0.0] * (N_BARS - len(vals)) + vals
+        half = (N_BARS - 1) / 2
+        x0 = W / 2 - half * BAR_STEP
+        for i in range(N_BARS):
+            d = abs(i - half) / half                       # 0 center .. 1 edge
+            cw = 0.62 + 0.38 * (1 - d)                      # center bars a touch taller
+            amp = min(1.0, vals[i] * 12) * 18 * cw
+            breathe = 0.0 if reduced else 2.2 * (0.5 + 0.5 * math.sin(now * 2 + i * 0.55))
+            target = 3 + amp + breathe                      # alive even when silent
+            ease = 1.0 if reduced else 0.28 + 0.12 * (0.5 + 0.5 * math.sin(i * 1.3))
+            bar_h[i] += (target - bar_h[i]) * ease          # settle, staggered per bar
+            x, hh = x0 + i * BAR_STEP, bar_h[i]
+            canvas.create_line(x, CY - hh / 2, x, CY + hh / 2, width=3.5,
+                               capstyle="round", fill=_hx(_mix(BAR_EDGE, BAR_CENTER, 1 - d)))
+
     def tick():
         canvas.delete("all")
         if state == "rec":
-            pill(200)
-            n, step = 19, 9
-            vals = list(levels)[-n:]
-            x0 = W / 2 - (n - 1) * step / 2 + (n - len(vals)) * step
-            for i, v in enumerate(vals):
-                h = 3 + min(1.0, v * 12) * 19
-                x = x0 + i * step
-                canvas.create_line(x, CY - h / 2, x, CY + h / 2,
-                                   width=3.5, capstyle="round", fill=BARS)
+            _capsule(canvas, W / 2, CY, 200, PILL_H)
+            bars()
         elif state == "busy":
-            pill(120)
-            dots(ACCENT, True)
+            _capsule(canvas, W / 2, CY, 120, PILL_H)
+            dots(DOT_ACCENT, not reduced)
         elif state == "load":
-            pill(120)
-            dots(DIM, True)
+            _capsule(canvas, W / 2, CY, 120, PILL_H)
+            dots(DOT_DIM, not reduced)
         else:
-            pill(96)
-            dots(DIM, False)
+            _capsule(canvas, W / 2, CY, 96, PILL_H)
+            dots(DOT_DIM, False)
         root.after(40, tick)
 
     def start_move(e):
