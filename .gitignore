@@ -1,0 +1,7 @@
+.venv/
+dist/
+build/
+__pycache__/
+*.pyc
+dictionary.txt
+WhisprFlow.log
