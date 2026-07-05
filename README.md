@@ -14,7 +14,7 @@ No cloud, no subscription, no audio ever leaves your machine.
 
 Built entirely on consumer hardware: an **RTX 4050 laptop GPU (6 GB VRAM)**.
 
-![pill UI](whisprflow_icon_preview.png)
+![demo](demo.gif)
 
 ## What it does
 
