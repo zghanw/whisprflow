@@ -5,7 +5,8 @@
 ![Whisper](https://img.shields.io/badge/faster--whisper-large--v3--turbo-412991)
 ![Ollama](https://img.shields.io/badge/Ollama-qwen3:4b--instruct-000000?logo=ollama&logoColor=white)
 ![Platform](https://img.shields.io/badge/platform-Windows-0078D6?logo=windows&logoColor=white)
-![License](https://img.shields.io/badge/local--first-100%25%20offline-success)
+![Offline](https://img.shields.io/badge/local--first-100%25%20offline-success)
+![License](https://img.shields.io/badge/license-MIT-blue)
 
 A local, private clone of [Wispr Flow](https://wisprflow.ai). Hold a hotkey, speak,
 release, and clean, formatted text is typed into whatever app you're focused on.
@@ -207,7 +208,11 @@ spellings. The file also grows on its own as you dictate.
   both, but it turns newlines into Enter — sending half-finished messages in chat
   apps — so clipboard is the deliberate choice.)
 - The global hotkey can't be captured while a window running **as administrator**
-  is focused, unless this app is al   so run elevated.
+  is focused, unless this app is also run elevated.
+
+## License
+
+[MIT](LICENSE) — free to use, modify, and distribute.
 
 ## Credits
 
