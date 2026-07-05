@@ -1,6 +1,6 @@
-<p align="center">
-  <img src="whisprflow_icon_preview.png" width="96" alt="WhisprFlow logo">
-</p>
+<div align="center">
+
+<img src="whisprflow_icon_preview.png" width="96" alt="WhisprFlow logo">
 
 # WhisprFlow
 
@@ -11,6 +11,8 @@
 ![Platform](https://img.shields.io/badge/platform-Windows-0078D6?logo=windows&logoColor=white)
 ![Offline](https://img.shields.io/badge/local--first-100%25%20offline-success)
 ![License](https://img.shields.io/badge/license-MIT-blue)
+
+</div>
 
 A local, private clone of [Wispr Flow](https://wisprflow.ai). Hold a hotkey, speak,
 release, and clean, formatted text is typed into whatever app you're focused on.
