@@ -1,4 +1,8 @@
-# WhisprFlow 
+<p align="center">
+  <img src="whisprflow_icon_preview.png" width="96" alt="WhisprFlow logo">
+</p>
+
+# WhisprFlow
 
 ![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)
 ![CUDA](https://img.shields.io/badge/CUDA-GPU%20accelerated-76B900?logo=nvidia&logoColor=white)
