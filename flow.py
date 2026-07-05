@@ -53,8 +53,10 @@ import tkinter as tk
 from faster_whisper import WhisperModel
 
 HOTKEY = "f9"           # hold to talk
+SUPPRESS_HOTKEY = False  # True = don't leak the hotkey to the focused app (see README)
 SAMPLE_RATE = 16000
 MIN_SECONDS = 0.3       # ignore accidental taps
+MAX_SECONDS = 120       # cap a single dictation so a stuck key can't grow RAM forever
 LANGUAGE = None         # None = auto-detect; set "en" to lock English
 
 def _tone(freq: float, ms: int = 130, vol: float = 0.22) -> np.ndarray:
@@ -118,6 +120,7 @@ FEWSHOT = [
 # state shared across threads; UI thread only reads it
 state = "load"          # load -> idle <-> rec -> busy -> idle
 levels = collections.deque(maxlen=24)  # recent mic RMS for the waveform
+warn_until = 0.0        # pill flashes amber until this time after a raw-text fallback
 model = None
 model_lock = threading.Lock()
 chunks = []
@@ -251,20 +254,28 @@ def paste(text: str) -> None:
 
 
 def _audio_cb(data, *_):
-    chunks.append(data.copy())
+    if len(chunks) * data.shape[0] < MAX_SECONDS * SAMPLE_RATE:  # cap RAM (finding #8)
+        chunks.append(data.copy())
     levels.append(float(np.sqrt((data ** 2).mean())))
 
 
 def on_press(_event) -> None:
+    # Only start from a clean idle: blocks re-entry while loading/recording/processing
+    # (finding #1 — a second F9 mid-transcribe no longer interleaves two dictations).
     global state, chunks, stream
-    if model is None or state == "rec":
+    if state != "idle":
         return
-    state = "rec"
     chunks = []
     levels.clear()
-    stream = sd.InputStream(samplerate=SAMPLE_RATE, channels=1, dtype="float32",
-                            blocksize=1600, callback=_audio_cb)
-    stream.start()
+    try:  # open the mic before committing to "rec" so a device error can't wedge us
+        s = sd.InputStream(samplerate=SAMPLE_RATE, channels=1, dtype="float32",
+                           blocksize=1600, callback=_audio_cb)
+        s.start()
+    except Exception as e:  # finding #2 — no mic / device busy: stay idle, stay usable
+        print(f"(microphone unavailable: {e})")
+        return
+    stream = s
+    state = "rec"
     chime(START_TONE)
 
 
@@ -293,6 +304,8 @@ def _finish(audio: np.ndarray, app: str) -> None:
         try:
             text = enhance(text, app)
         except Exception as e:
+            global warn_until  # finding #7 — flash the pill amber so the skipped
+            warn_until = time.time() + 2.5  # cleanup is visible, not just logged
             print(f"(ollama unavailable, pasting raw transcript: {e})")
     if text:
         paste(text)
@@ -308,6 +321,7 @@ TRANSKEY = "#010203"        # color-keyed transparent (click-through on Windows)
 CAP_TOP = (0xFE, 0xFE, 0xFF)    # near-white surface, subtly lit from the top...
 CAP_BOT = (0xF3, 0xF3, 0xF8)    # ...to a hair darker at the bottom = soft material
 CAP_BORDER = (0xE7, 0xE7, 0xEE)  # 1px hairline (the only edge, since we can't shadow)
+WARN_BORDER = (0xE0, 0x9B, 0x2A)  # amber ring when cleanup was skipped (finding #7)
 BAR_EDGE = (0x6C, 0x5C, 0xF6)   # accent base (matches the app icon)
 BAR_CENTER = (0x4F, 0x3F, 0xD1)  # deeper toward the middle
 DOT_DIM = (0x86, 0x86, 0x92)    # neutral "waiting" grey, not a competing accent
@@ -324,7 +338,7 @@ def _mix(a, b, t):
     return tuple(round(a[i] + (b[i] - a[i]) * t) for i in range(3))
 
 
-def _capsule(canvas, cx, cy, w, h):
+def _capsule(canvas, cx, cy, w, h, border=CAP_BORDER):
     """A true stadium (fully rounded ends) with a subtle vertical gradient and a 1px
     hairline border, drawn as per-row scanlines so the rounded ends stay crisp."""
     def scan(width, height, top, bot):
@@ -335,7 +349,7 @@ def _capsule(canvas, cx, cy, w, h):
             dx = math.sqrt(max(0.0, r * r - dy * dy))
             t = (dy + r) / (2 * r) if r else 0
             canvas.create_line(xl0 - dx, y, xr0 + dx, y, fill=_hx(_mix(top, bot, t)))
-    scan(w, h, CAP_BORDER, CAP_BORDER)        # border underlay (solid)
+    scan(w, h, border, border)                # border underlay (solid)
     scan(w - 2, h - 2, CAP_TOP, CAP_BOT)      # gradient fill, inset 1px -> ring
 
 
@@ -395,17 +409,18 @@ def run_ui() -> None:
 
     def tick():
         canvas.delete("all")
+        edge = WARN_BORDER if time.time() < warn_until else CAP_BORDER
         if state == "rec":
-            _capsule(canvas, W / 2, CY, 200, PILL_H)
+            _capsule(canvas, W / 2, CY, 200, PILL_H, edge)
             bars()
         elif state == "busy":
-            _capsule(canvas, W / 2, CY, 120, PILL_H)
+            _capsule(canvas, W / 2, CY, 120, PILL_H, edge)
             dots(DOT_ACCENT, not reduced)
         elif state == "load":
-            _capsule(canvas, W / 2, CY, 120, PILL_H)
+            _capsule(canvas, W / 2, CY, 120, PILL_H, edge)
             dots(DOT_DIM, not reduced)
         else:
-            _capsule(canvas, W / 2, CY, 96, PILL_H)
+            _capsule(canvas, W / 2, CY, 96, PILL_H, edge)
             dots(DOT_DIM, False)
         root.after(40, tick)
 
@@ -458,8 +473,8 @@ if __name__ == "__main__":
             check()
             sys.exit(0)
         threading.Thread(target=load_model, daemon=True).start()
-        keyboard.on_press_key(HOTKEY, on_press, suppress=False)
-        keyboard.on_release_key(HOTKEY, on_release, suppress=False)
+        keyboard.on_press_key(HOTKEY, on_press, suppress=SUPPRESS_HOTKEY)
+        keyboard.on_release_key(HOTKEY, on_release, suppress=SUPPRESS_HOTKEY)
         run_ui()
         os._exit(0)  # window closed: drop keyboard/audio daemon threads immediately
     except Exception:

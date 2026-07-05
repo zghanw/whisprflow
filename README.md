@@ -28,6 +28,24 @@ It also **learns as you use it**: after every dictation, a background pass extra
 proper nouns, acronyms, and jargon you said, and remembers them so future dictations
 spell your names and terms correctly.
 
+## How it compares to Wispr Flow
+
+| | WhisprFlow Clone | Wispr Flow |
+|---|---|---|
+| **Price** | Free | ~$15/mo |
+| **Where it runs** | 100% local on your GPU | Cloud |
+| **Audio leaves your machine** | Never | Uploaded for transcription |
+| **Works offline** | Yes | No |
+| **Transcription latency** | ~1s (Whisper on CUDA) | Sub-second (cloud) |
+| **AI cleanup latency** | ~3-4s (local LLM) | Included in ~700ms end-to-end |
+| **VRAM footprint** | ~4 GB (both models resident) | N/A (server-side) |
+| **Adaptive dictionary** | Yes, learns locally | Yes |
+| **Customizable** | Fully — it's your code | No |
+
+The trade is honest: a cloud service optimized on datacenter GPUs is faster end-to-end.
+What you get back is zero cost, zero data exfiltration, offline capability, and full
+control — running on a 6 GB laptop GPU.
+
 ## Why this exists
 
 Wispr Flow is a commercial dictation app. Its own documentation and
@@ -166,8 +184,10 @@ All settings are constants at the top of `flow.py`:
 | Setting | What it does |
 |---|---|
 | `HOTKEY` | The push-to-talk key (default `"f9"`) |
+| `SUPPRESS_HOTKEY` | `True` stops the hotkey from also reaching the focused app |
 | `LANGUAGE` | `None` auto-detects; set e.g. `"en"` to lock a language |
 | `ENHANCE` | Set `False` to skip the LLM step entirely (raw transcription only) |
+| `MAX_SECONDS` | Hard cap on a single dictation's length |
 | `OLLAMA_MODEL` | Which Ollama model does the cleanup pass |
 
 Put custom terms (names, jargon) one per line in `dictionary.txt` next to the
@@ -176,12 +196,18 @@ spellings. The file also grows on its own as you dictate.
 
 ## Known limitations
 
-- Windows only (uses `winreg`-adjacent Win32 APIs for the active window title and
-  clipboard paste).
+- Windows only (uses Win32 APIs for the active window title and clipboard paste).
 - The LLM cleanup pass adds roughly 1–4 seconds of latency per dictation; disable
   `ENHANCE` for instant raw transcription.
 - Tone adaptation is intentionally subtle by design (see trade-offs above) — it
   will not rewrite your sentences, only lightly adjust punctuation/contractions.
+- **Paste uses the clipboard** (Ctrl+V), which is instant and multiline-safe. Two
+  consequences: text goes into a **terminal** only if you use its paste shortcut,
+  and a dictation briefly replaces clipboard contents. (Synthetic typing would avoid
+  both, but it turns newlines into Enter — sending half-finished messages in chat
+  apps — so clipboard is the deliberate choice.)
+- The global hotkey can't be captured while a window running **as administrator**
+  is focused, unless this app is al   so run elevated.
 
 ## Credits
 
