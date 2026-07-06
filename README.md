@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="whisprflow_icon_preview.png" width="96" alt="WhisprFlow logo">
+<img src="assets/whisprflow_icon_preview.png" width="96" alt="WhisprFlow logo">
 
 # WhisprFlow
 
@@ -20,7 +20,7 @@ No cloud, no subscription, no audio ever leaves your machine.
 
 Built entirely on consumer hardware: an **RTX 4050 laptop GPU (6 GB VRAM)**.
 
-![demo](demo.gif)
+![demo](assets/demo.gif)
 
 ## What it does
 

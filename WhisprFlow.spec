@@ -41,7 +41,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon='whisprflow_icon.ico',
+    icon='assets/whisprflow_icon.ico',
 )
 coll = COLLECT(
     exe,
