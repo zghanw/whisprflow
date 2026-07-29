@@ -4,13 +4,13 @@
 
 # WhisprFlow
 
-![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)
-![CUDA](https://img.shields.io/badge/CUDA-GPU%20accelerated-76B900?logo=nvidia&logoColor=white)
-![Whisper](https://img.shields.io/badge/faster--whisper-large--v3--turbo-412991)
-![Ollama](https://img.shields.io/badge/Ollama-qwen3:4b--instruct-000000?logo=ollama&logoColor=white)
+[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://python.org)
+[![CUDA](https://img.shields.io/badge/CUDA-GPU%20accelerated-76B900?logo=nvidia&logoColor=white)](https://developer.nvidia.com/cuda-toolkit)
+[![Whisper](https://img.shields.io/badge/faster--whisper-large--v3--turbo-412991)](https://github.com/SYSTRAN/faster-whisper)
+[![Ollama](https://img.shields.io/badge/Ollama-qwen3:4b--instruct-000000?logo=ollama&logoColor=white)](https://ollama.com)
 ![Platform](https://img.shields.io/badge/platform-Windows-0078D6?logo=windows&logoColor=white)
 ![Offline](https://img.shields.io/badge/local--first-100%25%20offline-success)
-![License](https://img.shields.io/badge/license-MIT-blue)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 </div>
 
