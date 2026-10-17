@@ -24,8 +24,8 @@ Built entirely on consumer hardware: an **RTX 4050 laptop GPU (6 GB VRAM)**.
 
 ## What it does
 
-1. **Hold F9** → a floating pill appears at the bottom of your screen with a live waveform.
-2. **Speak, then release F9** → your speech is transcribed locally on the GPU.
+1. **Hold F9.** A floating pill appears at the bottom of your screen with a live waveform.
+2. **Speak, then release F9.** Your speech is transcribed locally on the GPU.
 3. A local LLM cleans the transcript up: removes "um"/"uh", fixes grammar and
    punctuation, applies your self-corrections, and lightly matches tone to the app
    you're typing into.
@@ -45,7 +45,7 @@ spell your names and terms correctly.
 | **Works offline** | Yes | No |
 | **Transcription latency** | ~1s (Whisper on CUDA) | Sub-second (cloud) |
 | **AI cleanup latency** | ~3-4s (local LLM) | Included in ~700ms end-to-end |
-| **VRAM footprint** | ~4 GB (both models resident) | N/A (server-side) |
+| **VRAM footprint** | ~4.3 GB (both models resident) | N/A (server-side) |
 | **Adaptive dictionary** | Yes, learns locally | Yes |
 | **Customizable** | Fully, it's your code | No |
 
@@ -78,9 +78,9 @@ flowchart LR
 - **ASR:** [faster-whisper](https://github.com/SYSTRAN/faster-whisper), running
   `large-v3-turbo` on CUDA at `int8_float16` precision. This quantization was the key
   decision for a 6 GB card: full-precision `large-v3` doesn't comfortably fit alongside
-  an LLM, but the int8 quantized turbo model uses only ~1.5 GB VRAM with negligible
+  an LLM, but the int8 quantized turbo model uses only ~1.1 GB VRAM with negligible
   accuracy loss.
-- **Cleanup:** [Ollama](https://ollama.com) running `qwen3:4b-instruct` (2.5 GB VRAM).
+- **Cleanup:** [Ollama](https://ollama.com) running `qwen3:4b-instruct` (~3.2 GB VRAM).
   This specific model was chosen after testing three alternatives, see
   [Decisions & trade-offs](#decisions--trade-offs) below for why.
 - **UI:** a borderless, click-through `tkinter` pill window (stdlib only, no UI
@@ -101,9 +101,9 @@ more VRAM, `large-v3` gives marginally better accuracy at the cost of ~3x the me
 **Cleanup model: three candidates tested.**
 | Model | Result |
 |---|---|
-| `llama3.2:3b` | Fast, but flattened questions into commands ("can you send the file" → "Send the file"). An instruction-following ceiling, not a prompt problem. |
-| `qwen3:4b` (thinking) | Perfect fidelity, but "thought" for 80–140 seconds per sentence and ignored `/no_think`. Unusable for real-time dictation. |
-| **`qwen3:4b-instruct`** | Same fidelity as the thinking variant, 3–4 second responses. This is what shipped. |
+| `llama3.2:3b` | Fast, but flattened questions into commands ("can you send the file" became "Send the file"). An instruction-following ceiling, not a prompt problem. |
+| `qwen3:4b` (thinking) | Perfect fidelity, but "thought" for 80-140 seconds per sentence and ignored `/no_think`. Unusable for real-time dictation. |
+| **`qwen3:4b-instruct`** | Same fidelity as the thinking variant, 3-4 second responses. This is what shipped. |
 
 **The "it answers my questions" bug.** Early on, dictating a question like *"what's
 the weather in Singapore"* made the LLM literally answer the question instead of
@@ -130,7 +130,7 @@ narrow tone bullet on top, rather than rewriting the constraint itself.
 
 **VRAM lifecycle.** The LLM is set to `keep_alive: "5m"` rather than loaded forever.
 Ollama auto-starts in the background at login either way (~200 MB RAM, negligible),
-but without a timeout the 2.6 GB model would sit pinned in VRAM permanently, even
+but without a timeout the ~3.2 GB model would sit pinned in VRAM permanently, even
 when you're not dictating, a real cost if you game or run other GPU workloads
 while it's open. The trade-off: a ~5 second one-time delay to reload the model if
 you dictate again after 5+ idle minutes.
@@ -144,8 +144,8 @@ you dictate again after 5+ idle minutes.
 
 ### 1. Clone and set up the environment
 ```
-git clone https://github.com/<your-username>/whisprflow-clone.git
-cd whisprflow-clone
+git clone https://github.com/zghanw/whisprflow.git
+cd whisprflow
 python -m venv .venv
 .venv\Scripts\pip install -r requirements.txt
 ```
@@ -199,7 +199,7 @@ spellings. The file also grows on its own as you dictate.
 ## Known limitations
 
 - Windows only (uses Win32 APIs for the active window title and clipboard paste).
-- The LLM cleanup pass adds roughly 1–4 seconds of latency per dictation; disable
+- The LLM cleanup pass adds roughly 1-4 seconds of latency per dictation; disable
   `ENHANCE` for instant raw transcription.
 - Tone adaptation is intentionally subtle by design (see trade-offs above). It
   will not rewrite your sentences, only lightly adjust punctuation/contractions.
