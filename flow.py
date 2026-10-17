@@ -380,6 +380,9 @@ def run_ui() -> None:
     canvas.pack()
 
     bar_h = [3.0] * N_BARS  # persistent heights so bars ease toward targets, not snap
+    style = ["siri"]        # "siri" | "bars" — double-click the pill to flip live
+    amp = [0.15]            # smoothed loudness for the siri wave (attack/decay)
+    phi = [0.0, 0.0, 0.0]   # sway / ripple / echo-lag phases
 
     def dots(rgb, pulse):
         color = _hx(rgb)
@@ -407,12 +410,46 @@ def run_ui() -> None:
             canvas.create_line(x, CY - hh / 2, x, CY + hh / 2, width=3.5,
                                capstyle="round", fill=_hx(_mix(BAR_EDGE, BAR_CENTER, 1 - d)))
 
+    def wave():
+        # Siri-style: bell-enveloped carrier + mirrored echoes, adapted from
+        # qreenify/unknown-pleasures. Driven by the same mic RMS as the bars —
+        # no FFT: per-echo "flex" wobble stands in for their spectral bands.
+        target = min(1.0, (levels[-1] if levels else 0.0) * 12)
+        a = max(amp[0] * math.exp(-0.04 / 0.11),  # ~0.11s decay between syllables
+                target, 0.15)                     # instant attack, breathing idle floor
+        amp[0] = a
+        if not reduced:
+            alive = 0.25 + 0.75 * min(1.0, (a - 0.15) / 0.5)  # motion slows in silence
+            phi[0] += 2.8 * 0.04 * alive
+            phi[1] += 4.5 * 0.04 * alive
+            phi[2] += 1.7 * 0.04 * alive
+        sway = 0.5 * math.sin(phi[0])
+        inner, n = 168.0, 36
+        for j, scale in enumerate((0.22, -0.22, 0.45, -0.45, 0.72, -0.72, 1.0)):
+            main = scale == 1.0
+            lag = 0.9 * (1 - abs(scale)) * math.sin(phi[2] + j)
+            flex = 1.0 if main else 0.65 + 0.45 * abs(math.sin(phi[2] * 0.7 + j * 1.3))
+            col = BAR_CENTER if main else _mix(BAR_EDGE, CAP_BOT,
+                                               0.15 + 0.55 * (1 - abs(scale)))
+            pts = []
+            for k in range(n + 1):
+                t = k / n
+                d = abs(t - 0.5)
+                bell = math.exp(-(d * d) / (2 * 0.22 * 0.22))
+                ripple = 1 - 0.22 * math.cos(2 * math.pi * 2.2 * d - phi[1])
+                base = a * 9.5 * bell * ripple
+                y = CY + scale * flex * base * math.cos(
+                    2 * math.pi * 2.6 * (t - 0.5) + sway + lag)
+                pts += [W / 2 - inner / 2 + t * inner, y]
+            canvas.create_line(*pts, width=2.6 if main else 1.4,
+                               fill=_hx(col), smooth=True, capstyle="round")
+
     def tick():
         canvas.delete("all")
         edge = WARN_BORDER if time.time() < warn_until else CAP_BORDER
         if state == "rec":
             _capsule(canvas, W / 2, CY, 200, PILL_H, edge)
-            bars()
+            wave() if style[0] == "siri" else bars()
         elif state == "busy":
             _capsule(canvas, W / 2, CY, 120, PILL_H, edge)
             dots(DOT_ACCENT, not reduced)
@@ -433,6 +470,8 @@ def run_ui() -> None:
     canvas.bind("<ButtonPress-1>", start_move)
     canvas.bind("<B1-Motion>", do_move)
     canvas.bind("<Button-3>", lambda e: root.destroy())
+    canvas.bind("<Double-Button-1>",
+                lambda e: style.__setitem__(0, "bars" if style[0] == "siri" else "siri"))
     tick()
     root.mainloop()
 
