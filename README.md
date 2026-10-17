@@ -84,8 +84,9 @@ flowchart LR
   This specific model was chosen after testing three alternatives, see
   [Decisions & trade-offs](#decisions--trade-offs) below for why.
 - **UI:** a borderless, click-through `tkinter` pill window (stdlib only, no UI
-  framework) that renders a live waveform while recording and pulsing dots while
-  processing.
+  framework). While you talk it draws a Siri-style wave: a bell-shaped carrier line
+  with mirrored echoes that sway and breathe with your voice. Double-click the pill
+  to switch to the classic bar waveform. Pulsing dots show while processing.
 - **Packaging:** [PyInstaller](https://pyinstaller.org) bundles the app plus the CUDA
   runtime DLLs into a standalone `WhisprFlow.exe`, no Python install required to run it.
 
@@ -221,3 +222,5 @@ Architecture inspired by the publicly documented approach of
 [Baseten case study](https://www.baseten.co/resources/customers/wispr-flow/)).
 Built with [faster-whisper](https://github.com/SYSTRAN/faster-whisper),
 [Ollama](https://ollama.com), and [PyInstaller](https://pyinstaller.org).
+The Siri-style wave adapts the math from
+[qreenify/unknown-pleasures](https://github.com/qreenify/unknown-pleasures).
