@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src ws://127.0.0.1:*" />
+    <title>WhisprFlow</title>
+    <link rel="stylesheet" href="../shared/tokens.css" />
+    <link rel="stylesheet" href="bar.css" />
+  </head>
+  <body data-view="hidden" data-shown="false" data-controls="false">
+    <div class="shell" role="status" aria-live="polite">
+      <p class="hint" id="hint"></p>
+      <div class="bar">
+        <span class="control cancel" id="cancel">
+          <svg viewBox="0 0 14 14" aria-hidden="true"><path d="M3 3l8 8M11 3l-8 8" /></svg>
+        </span>
+        <div class="mid" aria-hidden="true">
+          <div class="wave" id="wave"></div>
+          <div class="think" id="think"></div>
+          <svg class="tick" viewBox="0 0 76 22" aria-hidden="true"><path d="M30 11.5l5.5 5.5L47 5.5" /></svg>
+        </div>
+        <span class="control confirm" id="confirm">
+          <svg viewBox="0 0 14 14" aria-hidden="true"><path d="M2.5 7.5l3 3 6-7" /></svg>
+        </span>
+        <div class="message">
+          <svg class="warning" viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M8 2.2L14.5 13.5H1.5z" />
+            <path d="M8 6.6v3.2M8 11.6v.1" />
+          </svg>
+          <span id="message"></span>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="bar.mjs"></script>
+  </body>
+</html>

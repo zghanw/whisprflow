@@ -1,0 +1,341 @@
+/* The floating bar: the strip at the bottom of the screen while speaking. Cancel on the left, a wave flowing left with the voice in the middle, done on the right; a hint line above.
+   It floats over any app and any wallpaper, so it uses an opaque dark background and doesn't follow the system light/dark setting.
+   Colors come from the theme (the "floating bar" group in src/themes); type sizes, radii, and motion are in tokens.css.
+
+   The window itself can't be clicked (all mouse events pass through, see src/app/main.mjs); clicks on the two buttons are captured by the native helper and passed to the page,
+   so there are no hover or pressed styles here. What it looks like is set by three attributes on body, all set by bar-ui.mjs:
+     data-view      which view it is now (starting / recording / finishing / done / notice / error)
+     data-shown     whether the bar is on screen
+     data-controls  whether the two buttons can be clicked (without Accessibility permission they can't, so they aren't drawn) */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  background: transparent;
+  overflow: hidden;
+  user-select: none;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  /* The window sits on the bottom edge of the screen's usable area. The bar keeps this far from the edge, and that space also leaves room for the shadow */
+  padding-bottom: 28px;
+  font: var(--text-small) / 1.35 var(--font);
+  color: var(--bar-ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+.shell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Appearing: floats up from below. Disappearing: fades out, then the script puts the window away */
+body[data-shown="true"] .shell {
+  animation: rise var(--dur-slow) var(--ease-out);
+}
+
+body[data-shown="false"] .shell {
+  opacity: 0;
+  transition: opacity var(--dur-base) var(--ease-out);
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@keyframes appear {
+  from {
+    opacity: 0;
+  }
+}
+
+/* ---------- The hint line above ---------- */
+
+.hint {
+  margin: 0;
+  padding: 3px 10px;
+  color: var(--bar-muted);
+  background: var(--bar-surface);
+  border-radius: var(--radius-full);
+  box-shadow: 0 0 0 1px var(--bar-edge);
+  font-size: var(--text-micro);
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.hint:empty {
+  display: none;
+}
+
+/* Key names: same font as the body text; in monospace fonts symbols like ⌥ ⌘ are small and off-center */
+.hint kbd {
+  font: inherit;
+  font-weight: var(--weight-semibold);
+  color: var(--bar-ink);
+}
+
+/* ---------- The bar ---------- */
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 40px;
+  padding: 6px;
+  background: var(--bar-surface);
+  /* One line tall it is fully round at both ends; an error on two lines makes it a rounded rectangle */
+  border-radius: 20px;
+  box-shadow:
+    0 0 0 1px var(--bar-edge),
+    0 6px 18px oklch(0 0 0 / 0.3),
+    0 2px 5px oklch(0 0 0 / 0.2);
+}
+
+.control {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  transition:
+    opacity var(--dur-base) var(--ease-out),
+    transform var(--dur-base) var(--ease-out);
+}
+
+.control svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.cancel {
+  color: var(--bar-ink);
+  background: var(--bar-ghost);
+}
+
+.confirm {
+  color: var(--bar-on-go);
+  background: var(--bar-go);
+}
+
+body[data-controls="false"] .control {
+  display: none;
+}
+
+body[data-controls="false"] .bar {
+  padding-inline: 14px;
+}
+
+/* ---------- The middle: the wave, the refining wave, and the check mark, stacked in one place and swapped by view ---------- */
+
+.mid {
+  position: relative;
+  flex: none;
+  width: 76px;
+  height: 22px;
+}
+
+.mid > * {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity var(--dur-base) var(--ease-out);
+}
+
+.wave,
+.think {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.wave i,
+.think i {
+  flex: none;
+  height: 100%;
+  border-radius: 2px;
+}
+
+/* The wave: bars stay in place while the voice raises a wave from the middle out to both sides (wave.mjs). Redrawn every frame with no transition,
+   since a transition would smooth away the frame-to-frame jitter. Height doesn't use scaleY: squashing loses the round caps, and lying flat should be a row of small dots */
+.wave {
+  gap: 2px;
+}
+
+.wave i {
+  --h: 0.1;
+  width: 2px;
+  height: calc(var(--h) * 100%);
+  min-height: 2px;
+  border-radius: 1px;
+  background: var(--bar-live);
+}
+
+.think {
+  gap: 3px;
+}
+
+.think i {
+  --i: 0;
+  width: 3px;
+  background: var(--bar-working);
+  transform: scaleY(0.2);
+}
+
+.tick path {
+  fill: none;
+  stroke: var(--bar-go);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 24;
+  stroke-dashoffset: 24;
+}
+
+/* Opening the microphone: no sound yet, bars lie flat and pulse gently; "done" starts dimmed and can't be clicked yet */
+body[data-view="starting"] .wave,
+body[data-view="recording"] .wave {
+  opacity: 1;
+}
+
+body[data-view="starting"] .wave {
+  animation: breathe 1s var(--ease-out) infinite alternate;
+}
+
+body[data-view="starting"] .confirm {
+  opacity: 0.35;
+}
+
+@keyframes breathe {
+  from {
+    opacity: 0.3;
+  }
+}
+
+/* Refining: both buttons leave (cancelling is no longer possible), and the middle becomes a wave rolling past at a steady pace */
+body[data-view="finishing"] .think {
+  opacity: 1;
+}
+
+body[data-view="finishing"] .think i {
+  animation: think 1.15s ease-in-out infinite;
+  animation-delay: calc(var(--i) * -90ms);
+}
+
+@keyframes think {
+  50% {
+    transform: scaleY(0.78);
+  }
+}
+
+body[data-view="finishing"] .control,
+body[data-view="done"] .control {
+  opacity: 0;
+  transform: scale(0.6);
+}
+
+/* Done: a check mark, then the whole bar disappears */
+body[data-view="done"] .tick {
+  opacity: 1;
+}
+
+body[data-view="done"] .tick path {
+  animation: draw 380ms var(--ease-out) forwards;
+}
+
+@keyframes draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* ---------- Hints and errors: the whole bar becomes one sentence ---------- */
+
+.message {
+  display: none;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: 300px;
+  padding: 0 10px;
+}
+
+.message span {
+  /* May be a whole sentence: at most two lines, truncated beyond that */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  text-wrap: balance;
+}
+
+.warning {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: var(--bar-problem);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+body[data-view="notice"] .bar > :not(.message),
+body[data-view="error"] .bar > :not(.message) {
+  display: none;
+}
+
+body[data-view="notice"] .message,
+body[data-view="error"] .message {
+  display: flex;
+  animation: appear var(--dur-base) var(--ease-out);
+}
+
+body[data-view="notice"] .warning {
+  display: none;
+}
+
+/* With "reduce motion" on: no movement, scaling, or rolling, only changes in brightness. The wave still follows the voice, just drawn less often (bar-ui.mjs) */
+@media (prefers-reduced-motion: reduce) {
+  body[data-shown="true"] .shell {
+    animation: appear var(--dur-base) linear;
+  }
+
+  .control {
+    transition: none;
+  }
+
+  body[data-view="finishing"] .think {
+    animation: breathe 1.2s linear infinite alternate;
+  }
+
+  body[data-view="finishing"] .think i {
+    animation: none;
+    transform: scaleY(0.45);
+  }
+
+  body[data-view="done"] .tick path {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+}

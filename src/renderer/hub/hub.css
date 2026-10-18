@@ -1,0 +1,877 @@
+/* The main window: a glass sidebar on the left, Home or History on the right; Settings is a glass dialog on top.
+   Layout: the traffic lights sit in the sidebar's top left, numbers start at 24px
+   with units a size smaller, and cards have 16 to 20px radii. Colors, glow, and glass build on shared/window.css. */
+
+/* The title bar is hidden; the window drags from two places: empty parts of the sidebar, and the top strip of the content (.content::before) */
+.sidebar {
+  -webkit-app-region: drag;
+}
+
+.sidebar :is(button, a, nav),
+.content > * {
+  -webkit-app-region: no-drag;
+}
+
+.sprite {
+  display: none;
+}
+
+.app {
+  display: grid;
+  grid-template-columns: 13.5rem minmax(0, 1fr);
+  height: 100vh;
+}
+
+/* ---------- Sidebar ---------- */
+
+/* A pane of glass floating on the glow: the light behind the top left shows through, its color lifted slightly */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  margin: 0.5rem;
+  padding: 3.5rem 0.75rem 0.75rem;
+  background: var(--glass);
+  backdrop-filter: var(--glass-filter);
+  border-radius: var(--radius-card);
+  box-shadow: var(--edge);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0.5rem 1.25rem;
+  font-size: var(--text-heading);
+  font-weight: var(--weight-bold);
+  letter-spacing: -0.01em;
+}
+
+.brand img {
+  display: block;
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.nav-item,
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  height: 2.25rem;
+  padding: 0 0.75rem;
+  font: inherit;
+  font-size: var(--text-body);
+  font-weight: var(--weight-medium);
+  color: var(--ink);
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-block);
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
+}
+
+.nav-item .icon,
+.menu-item .icon {
+  color: var(--item-icon, var(--ink-2));
+  transition: color var(--dur-fast) var(--ease-out);
+}
+
+.nav-item:hover,
+.menu-item:hover {
+  background: var(--fill-hover);
+}
+
+/* The selected item is a solid small surface, with the icon in the theme color */
+.nav-item[aria-current="page"],
+.menu-item[aria-current="true"] {
+  --item-icon: var(--primary);
+  background: var(--surface-solid);
+  box-shadow:
+    0 0 0 1px var(--line),
+    0 1px 3px oklch(0 0 0 / 0.08);
+}
+
+.nav-item:focus-visible,
+.menu-item:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+
+.sidebar-foot {
+  display: flex;
+  gap: 0.25rem;
+  margin-top: auto;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--line);
+}
+
+/* ---------- Content ---------- */
+
+.content {
+  position: relative;
+  overflow-y: auto;
+  padding: 3rem 3.5rem 3rem 3rem;
+}
+
+/* The top strip of the content is for dragging the window. Once scrolled it turns to glass, and text scrolled under it blurs */
+.content::before {
+  content: "";
+  position: fixed;
+  inset: 0 0 auto 13.5rem;
+  z-index: 1;
+  height: 2.75rem;
+  background: var(--glass);
+  backdrop-filter: var(--glass-filter);
+  box-shadow: 0 1px 0 var(--line);
+  opacity: 0;
+  transition: opacity var(--dur-base) var(--ease-out);
+  -webkit-app-region: drag;
+}
+
+.content[data-scrolled]::before {
+  opacity: 1;
+}
+
+.page {
+  max-width: 66rem;
+  margin: 0 auto;
+}
+
+.page-title {
+  margin: 0 0 1.75rem;
+  font-size: var(--text-display);
+  font-weight: var(--weight-bold);
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+
+/* Title row: a large title, with one control for the page on the right (Home's recognition mode, the model page's search) */
+.page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem 2rem;
+  margin-bottom: 1.75rem;
+}
+
+.page-head .page-title {
+  margin: 0;
+}
+
+/* What is still missing before it works: shown as a strip along the top */
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  max-width: 66rem;
+  margin: 0 auto 1.5rem;
+  padding: 0.6rem 0.7rem 0.6rem 1rem;
+  background: color-mix(in oklab, var(--problem) 12%, var(--surface));
+  border-radius: var(--radius-card);
+  box-shadow: 0 0 0 1px color-mix(in oklch, var(--problem) 24%, transparent);
+}
+
+.banner > .icon {
+  color: var(--banner-icon, var(--problem));
+}
+
+.banner-text {
+  flex: 1;
+  font-weight: var(--weight-medium);
+}
+
+/* Working, but degraded: doesn't need to be so loud */
+.banner[data-tone="soft"] {
+  --banner-icon: var(--ink-2);
+  background: var(--surface);
+  box-shadow: var(--edge);
+}
+
+/* ---------- Home ---------- */
+
+/* The right column is at least 12rem; the keycap and "press to talk" are longer in some languages (Right ⌥ / Press to talk), so widen rather than wrap */
+.home {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(12rem, max-content);
+  gap: 2rem;
+  align-items: start;
+}
+
+.insights {
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+/* Surfaces floating on the glow: translucent, with a bright top edge */
+.card {
+  padding: 1.1rem 1.25rem;
+  background: var(--surface);
+  border-radius: var(--radius-card);
+  box-shadow: var(--edge), var(--lift);
+}
+
+/* The four numbers share one surface, divided by thin lines; in a row when wide enough */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 0;
+}
+
+.stat {
+  padding: 1rem 1.25rem 0.95rem;
+}
+
+.stat:nth-child(even) {
+  border-left: 1px solid var(--line);
+}
+
+.stat:nth-child(n + 3) {
+  border-top: 1px solid var(--line);
+}
+
+@container (min-width: 34rem) {
+  .stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .stat + .stat {
+    border-left: 1px solid var(--line);
+  }
+
+  .stat:nth-child(n + 3) {
+    border-top: none;
+  }
+}
+
+.stat-value {
+  font-family: var(--font-rounded);
+  font-size: var(--text-figure);
+  font-weight: var(--weight-semibold);
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.stat-value .unit {
+  margin-left: 0.25rem;
+  font-family: var(--font);
+  font-size: var(--text-small);
+  font-weight: var(--weight-medium);
+  letter-spacing: 0;
+  color: var(--ink-2);
+}
+
+.stat-label {
+  margin-top: 0.3rem;
+  font-size: var(--text-small);
+  color: var(--ink-2);
+}
+
+/* Before anything is said the numbers are two dashes, a little fainter */
+.stat-value[data-empty] {
+  color: var(--ink-2);
+}
+
+.streaks {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.streaks .stat-value {
+  font-size: var(--text-title);
+}
+
+/* The heatmap: one column per week, Sunday on top. How many columns is decided by the width (hub/home.mjs).
+   Shading uses only the primary color, deeper for more. Mixed in oklab: with pure white or black backgrounds, oklch would skew the hue */
+.heatmap {
+  --cell: 0.875rem;
+  --gap: 0.375rem;
+  display: grid;
+  grid-template-columns: 1.25rem minmax(0, 1fr) 1.25rem;
+  grid-template-rows: auto auto;
+  column-gap: 0.25rem;
+  row-gap: 0.4rem;
+}
+
+.weekdays {
+  grid-area: 1 / 1;
+  display: grid;
+  grid-template-rows: repeat(7, var(--cell));
+  row-gap: var(--gap);
+  font-size: var(--text-micro);
+  line-height: var(--cell);
+  color: var(--ink-2);
+}
+
+.cells {
+  grid-area: 1 / 2;
+  display: grid;
+  grid-template-rows: repeat(7, var(--cell));
+  grid-auto-flow: column;
+  grid-auto-columns: var(--cell);
+  gap: var(--gap);
+  justify-content: space-between;
+}
+
+.cell {
+  display: block;
+  width: var(--cell);
+  height: var(--cell);
+  border-radius: 0.25rem;
+  background: var(--fill-hover);
+}
+
+.cell[data-level="1"] {
+  background: color-mix(in oklab, var(--primary) 22%, var(--bg));
+}
+
+.cell[data-level="2"] {
+  background: color-mix(in oklab, var(--primary) 46%, var(--bg));
+}
+
+.cell[data-level="3"] {
+  background: color-mix(in oklab, var(--primary) 72%, var(--bg));
+}
+
+.cell[data-level="4"] {
+  background: var(--primary);
+}
+
+/* Days before first use get hatching, days after today stay blank */
+.cell[data-state="before"] {
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--fill-hover) 0 2px,
+    color-mix(in oklch, var(--ink) 11%, transparent) 2px 3px
+  );
+}
+
+.cell[data-state="future"] {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.months {
+  grid-area: 2 / 2;
+  position: relative;
+  height: 1rem;
+  font-size: var(--text-micro);
+  color: var(--ink-2);
+}
+
+.months span {
+  position: absolute;
+  top: 0;
+  white-space: nowrap;
+}
+
+.page-arrow {
+  grid-area: 2 / 1;
+  display: grid;
+  place-items: center;
+  width: 1.25rem;
+  height: 1rem;
+  padding: 0;
+  color: var(--ink-2);
+  background: none;
+  border: none;
+  border-radius: 0.25rem;
+  cursor: pointer;
+}
+
+.page-arrow .icon {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+
+.page-arrow.next {
+  grid-area: 2 / 3;
+}
+
+.next > .icon {
+  rotate: 180deg;
+}
+
+.page-arrow:hover:not(:disabled) {
+  color: var(--ink);
+  background: var(--fill-hover);
+}
+
+.page-arrow:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+
+.page-arrow:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.legend {
+  --cell: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  margin-top: 0.6rem;
+  font-size: var(--text-micro);
+  color: var(--ink-2);
+}
+
+/* "Less" and "More" at the ends, with a little extra space from the cells */
+.legend > :first-child {
+  margin-right: 0.2rem;
+}
+
+.legend > :last-child {
+  margin-left: 0.2rem;
+}
+
+/* Cost: how much this period cost and the period picker on top, broken down by model below */
+.spend {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.spend-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem 1.5rem;
+}
+
+.spend-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-small);
+  font-variant-numeric: tabular-nums;
+}
+
+.spend-table th,
+.spend-table td {
+  padding: 0.4rem 0 0.4rem 1.25rem;
+  text-align: right;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.spend-table :is(th, td):first-child {
+  padding-left: 0;
+  text-align: left;
+}
+
+/* The header is a line of small text: a step smaller than the numbers, so it doesn't compete with them */
+.spend-table thead th {
+  padding-top: 0;
+  font-size: var(--text-micro);
+  font-weight: var(--weight-medium);
+  color: var(--ink-2);
+}
+
+/* Total: set apart from the rows above, a little heavier */
+.spend-table tfoot :is(th, td) {
+  border-top: 1px solid color-mix(in oklch, var(--ink) 16%, transparent);
+  font-weight: var(--weight-semibold);
+}
+
+.spend-table tbody tr + tr :is(th, td) {
+  border-top: 1px solid var(--line);
+}
+
+.spend-table tbody th {
+  font-weight: var(--weight-medium);
+}
+
+.spend-model {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+/* The model column can wrap (the others are numbers and don't): the model follows the name, and wraps whole onto the next line if it doesn't fit */
+.spend-table tbody th {
+  white-space: normal;
+}
+
+.spend-model-text > * {
+  white-space: nowrap;
+}
+
+.spend-model-id {
+  font-weight: var(--weight-regular);
+  color: var(--ink-2);
+}
+
+.spend-empty {
+  color: var(--ink-2);
+  text-align: left;
+}
+
+.spend-note {
+  font-size: var(--text-micro);
+  color: var(--ink-2);
+}
+
+.home-side {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* The dictation card: the same surface as the other cards, with the theme gradient only on the keycap */
+.dictate {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.8rem 0.9rem;
+  background: var(--surface);
+  border-radius: var(--radius-card);
+  box-shadow: var(--edge), var(--lift);
+}
+
+.dictate-key {
+  flex: none;
+  min-width: 2.75rem;
+  padding: 0.3rem 0.55rem;
+  font: var(--weight-semibold) var(--text-body) / 1.3 var(--font-rounded);
+  text-align: center;
+  color: var(--on-primary);
+  background: var(--gradient);
+  border-radius: var(--radius-control);
+  box-shadow:
+    inset 0 1px 0 var(--sheen),
+    0 2px 6px -2px var(--primary);
+}
+
+.dictate-title {
+  white-space: nowrap;
+  font-weight: var(--weight-semibold);
+  line-height: 1.35;
+}
+
+.version {
+  font-size: var(--text-micro);
+  text-align: right;
+  color: var(--ink-2);
+}
+
+/* ---------- History ---------- */
+
+.load-error {
+  margin-top: 1.5rem;
+}
+
+.empty-state {
+  padding: 4rem 0 2rem;
+  text-align: center;
+  color: var(--ink-2);
+}
+
+/* Day group headings: a weight heavier than an entry, spaced from the group above */
+.day-title {
+  margin: 2rem 0.25rem 0.6rem;
+  font-size: var(--text-body);
+  font-weight: var(--weight-semibold);
+}
+
+.entries {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  background: var(--surface);
+  border-radius: var(--radius-card);
+  box-shadow: var(--edge), var(--lift);
+  overflow: hidden;
+}
+
+.entry {
+  display: grid;
+  grid-template-columns: 3.25rem minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+.entry + .entry {
+  border-top: 1px solid var(--line);
+}
+
+.entry:hover {
+  background: var(--fill-hover);
+}
+
+.entry-time {
+  padding-top: 0.15rem;
+  font-size: var(--text-small);
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.entry-text {
+  max-width: 48rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+/* Failed or silent entries: one line of gray explanation */
+.entry[data-kind="failed"] .entry-text,
+.entry[data-kind="silent"] .entry-text {
+  color: var(--ink-2);
+}
+
+/* "Failed · " is written in the interface language, put into data-prefix by history.mjs */
+.entry[data-kind="failed"] .entry-text::before {
+  content: attr(data-prefix);
+  color: var(--problem);
+}
+
+.entry-actions {
+  display: flex;
+  gap: 0.15rem;
+  margin: -0.3rem -0.4rem -0.3rem 0;
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+
+.entry:hover .entry-actions,
+.entry:focus-within .entry-actions {
+  opacity: 1;
+}
+
+.copy[data-done] {
+  color: var(--ok);
+}
+
+.details {
+  cursor: help;
+}
+
+/* ---------- The models along a route (route-view.mjs): shared by Home's mode menu and the model page's presets ---------- */
+
+/* Icon plus name; each one wraps together with the arrow before it (an arrow is never left alone at a line end); no truncation */
+.hops {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+  margin-top: 0.375rem;
+  font-size: var(--text-small);
+  font-weight: var(--weight-medium);
+}
+
+.hop {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-width: 0;
+}
+
+.hop .provider-icon,
+.hop > .icon {
+  flex: none;
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.hop-name {
+  overflow-wrap: anywhere;
+}
+
+.hop-arrow {
+  color: var(--ink-2);
+}
+
+/* ---------- Action result notices: a brief flash at the bottom of the window (toast.mjs) ---------- */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
+  z-index: 3;
+  padding: 0.55rem 1rem;
+  font-size: var(--text-small);
+  font-weight: var(--weight-medium);
+  color: var(--ink);
+  background: var(--glass-strong);
+  backdrop-filter: var(--glass-filter);
+  border-radius: var(--radius-full);
+  box-shadow: var(--edge), var(--lift);
+  translate: -50% 0;
+  transition:
+    opacity var(--dur-base) var(--ease-out),
+    translate var(--dur-base) var(--ease-out);
+}
+
+.toast[data-hidden] {
+  opacity: 0;
+  translate: -50% 0.5rem;
+  pointer-events: none;
+}
+
+/* ---------- Settings dialog ---------- */
+
+/* A more solid pane of glass: Home behind it blurs first, and the dialog itself is slightly translucent */
+.settings {
+  width: min(52rem, 100vw - 4rem);
+  height: min(38rem, 100vh - 4rem);
+  padding: 0;
+  color: var(--ink);
+  background: var(--glass-strong);
+  backdrop-filter: var(--glass-filter);
+  border: none;
+  border-radius: var(--radius-card);
+  box-shadow:
+    var(--edge),
+    0 30px 80px -24px oklch(0 0 0 / 0.4);
+  overflow: hidden;
+  /* It covers the sidebar's drag region. Drag regions only follow app-region, regardless of what covers them: without this line, part of the left menu would drag the window when clicked */
+  -webkit-app-region: no-drag;
+}
+
+.settings[open] {
+  display: grid;
+  grid-template-columns: 12.5rem minmax(0, 1fr);
+  animation: dialog-in var(--dur-slow) var(--ease-out);
+}
+
+.settings::backdrop {
+  background: oklch(0 0 0 / 0.18);
+  backdrop-filter: blur(6px);
+  animation: fade-in var(--dur-slow) var(--ease-out);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .settings::backdrop {
+    backdrop-filter: none;
+  }
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    scale: 0.97;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.settings-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  padding: 1.25rem 0.75rem;
+  background: color-mix(in oklch, var(--ink) 3%, transparent);
+  box-shadow: 1px 0 0 var(--line);
+}
+
+.menu-dot {
+  width: 0.4rem;
+  height: 0.4rem;
+  margin-left: auto;
+  background: var(--problem);
+  border-radius: 50%;
+}
+
+.settings-body {
+  position: relative;
+  overflow-y: auto;
+  padding: 1.75rem 2rem 2rem;
+}
+
+.settings-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+}
+
+.pane-title {
+  margin: 0 0 1rem;
+  font-size: var(--text-title);
+  font-weight: var(--weight-bold);
+}
+
+.setting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: 0.85rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.setting-title {
+  display: block;
+  font-weight: var(--weight-medium);
+}
+
+.recheck-row {
+  margin-top: 1rem;
+}
+
+.setting-value {
+  font-size: var(--text-small);
+  color: var(--ink-2);
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+code.setting-value {
+  font-family: var(--font-mono);
+  user-select: text;
+}
+
+.setting-note {
+  margin-top: 0.5rem;
+  font-size: var(--text-small);
+  color: var(--ink-2);
+}
+
+.setting-note[data-tone="problem"] {
+  color: var(--problem);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-item,
+  .menu-item,
+  .nav-item .icon,
+  .menu-item .icon,
+  .content::before,
+  .entry,
+  .entry-actions {
+    transition: none;
+  }
+
+  .settings[open],
+  .settings::backdrop {
+    animation: none;
+  }
+
+  .toast {
+    transition: none;
+  }
+}

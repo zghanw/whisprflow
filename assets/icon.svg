@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- macOS icon layout: an 824 rounded square on a 1024 canvas, with margin all around -->
+  <rect x="103" y="103" width="818" height="818" rx="183" fill="#f7f7fb" stroke="#e3e3ee" stroke-width="6" />
+  <!-- Six voice bars, the tallest one in the deeper purple -->
+  <rect x="231" y="458" width="52" height="108" rx="26" fill="#6c5cf6" />
+  <rect x="333" y="412" width="52" height="200" rx="26" fill="#6c5cf6" />
+  <rect x="435" y="358" width="52" height="308" rx="26" fill="#6c5cf6" />
+  <rect x="537" y="332" width="52" height="360" rx="26" fill="#4f3fd1" />
+  <rect x="639" y="384" width="52" height="256" rx="26" fill="#6c5cf6" />
+  <rect x="741" y="436" width="52" height="152" rx="26" fill="#6c5cf6" />
+</svg>

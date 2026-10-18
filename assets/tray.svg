@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="212 212 600 600">
+  <!-- Menu bar icon: the six bars from icon.svg, black only.
+       macOS inverts it for light and dark menu bars (files named with Template), so no color here -->
+  <rect x="231" y="458" width="52" height="108" rx="26" />
+  <rect x="333" y="412" width="52" height="200" rx="26" />
+  <rect x="435" y="358" width="52" height="308" rx="26" />
+  <rect x="537" y="332" width="52" height="360" rx="26" />
+  <rect x="639" y="384" width="52" height="256" rx="26" />
+  <rect x="741" y="436" width="52" height="152" rx="26" />
+</svg>

@@ -1,0 +1,35 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.5.15/schema.json",
+  "files": {
+    "includes": [
+      "bin/**",
+      "src/**",
+      "test/**",
+      "scripts/**",
+      "bench/**",
+      "!bench/_work",
+      "website/**",
+      "!website/node_modules",
+      "!website/dist",
+      "!website/src/icons/data.js",
+      "!website/src/media.json",
+      "package.json",
+      "biome.json"
+    ]
+  },
+  "formatter": {
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 120
+  },
+  "linter": {
+    "rules": {
+      "preset": "recommended"
+    }
+  },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
+    }
+  }
+}

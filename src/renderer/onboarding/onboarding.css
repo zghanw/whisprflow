@@ -1,0 +1,926 @@
+/* Onboarding. The same size as the main window, with the title bar hidden the same way.
+   The mode and prepare steps are a one-column form: a list with one item per row (lined up however many), the selected row expanding in place, styled like the main window's key table;
+   later steps have text and actions in a left column and an illustration on the right. The first half of a title is a little fainter (the "<0>Now,</0> start dictating" pattern).
+   It looks like part of the main window: the glow behind, translucent surfaces, the theme gradient (shared/window.css). */
+
+/* The icon sheet is only referenced by <use> and takes no space */
+.sprite {
+  display: none;
+}
+
+body {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  height: 100vh;
+}
+
+/* ---------- Three segments along the top: progress bars with names, all clickable ---------- */
+
+/* The title bar is hidden: this top strip drags the window, but the buttons themselves don't */
+.steps {
+  display: flex;
+  justify-content: center;
+  padding: 1.1rem 2rem 0;
+  -webkit-app-region: drag;
+}
+
+.step-groups {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.step-groups button {
+  position: relative;
+  min-width: 6.5rem;
+  padding: 0.6rem 0 0.2rem;
+  font: inherit;
+  font-size: var(--text-small);
+  font-weight: var(--weight-medium);
+  color: var(--ink-2);
+  background: none;
+  border: none;
+  border-radius: 0;
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+  transition: color var(--dur-base) var(--ease-out);
+}
+
+/* A theme gradient over a gray track, lit up to the current segment */
+.step-groups button::before,
+.step-groups button::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  border-radius: var(--radius-full);
+  background: var(--fill-selected);
+}
+
+.step-groups button::after {
+  background: var(--gradient);
+  opacity: 0;
+  transition: opacity var(--dur-base) var(--ease-out);
+}
+
+.step-groups button:is([data-state="done"], [data-state="current"])::after {
+  opacity: 1;
+}
+
+.step-groups button[data-state="current"],
+.step-groups button:hover {
+  color: var(--ink);
+}
+
+.step-groups button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 4px;
+}
+
+.stage {
+  overflow-y: auto;
+  padding: 2rem 3.5rem;
+}
+
+.step {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 3rem;
+  align-items: center;
+  max-width: 62rem;
+  min-height: 100%;
+  margin: 0 auto;
+  animation: step-in var(--dur-slow) var(--ease-out);
+}
+
+@keyframes step-in {
+  from {
+    opacity: 0;
+    translate: 0 0.5rem;
+  }
+}
+
+.step-title {
+  margin: 0 0 1.5rem;
+  /* CJK titles only break at punctuation and spaces, so words aren't split across lines */
+  word-break: keep-all;
+  font-size: var(--text-display);
+  font-weight: var(--weight-bold);
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+.soft {
+  color: var(--ink-2);
+}
+
+.visual {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 19rem;
+  padding: 2rem;
+  background: var(--surface);
+  border-radius: var(--radius-card);
+  box-shadow: var(--edge), var(--lift);
+}
+
+/* ---------- One-column form: choosing the mode, preparing ---------- */
+
+.step.form-step {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: stretch;
+  gap: 0;
+  max-width: 42rem;
+  padding-top: 0.5rem;
+}
+
+.form-step .step-title {
+  margin-bottom: 1.25rem;
+}
+
+/* One line at the bottom of the page: it can be skipped, and where to change it later */
+.footnote {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  font-size: var(--text-small);
+  color: var(--ink-2);
+}
+
+.footnote .icon {
+  width: 0.875rem;
+  height: 0.875rem;
+  margin-top: 0.2rem;
+}
+
+/* ---------- Choosing the mode: one per row, icon on the left, name and needs in the middle, providers on the right ---------- */
+
+.choices {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.choice {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+  padding: 1rem 1.125rem;
+  font: inherit;
+  text-align: left;
+  color: var(--ink);
+  background: var(--surface);
+  border: none;
+  border-radius: var(--radius-card);
+  box-shadow: var(--edge);
+  cursor: pointer;
+  transition:
+    background-color var(--dur-base) var(--ease-out),
+    box-shadow var(--dur-base) var(--ease-out);
+}
+
+.choice:hover {
+  background: var(--surface-solid);
+  box-shadow: var(--ring-strong), var(--lift);
+}
+
+.choice[aria-checked="true"] {
+  background: color-mix(in oklch, var(--primary) 6%, var(--surface-solid));
+  box-shadow:
+    0 0 0 1.5px color-mix(in oklch, var(--primary) 55%, transparent),
+    var(--lift);
+}
+
+.choice:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+}
+
+.choice:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+/* Mode icons: a small tile, switching to the theme gradient when selected */
+.choice-icon {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  color: var(--ink);
+  background: var(--surface-solid);
+  border-radius: var(--radius-block);
+  box-shadow:
+    0 0 0 1px var(--line),
+    0 1px 2px oklch(0 0 0 / 0.06);
+  transition:
+    color var(--dur-base) var(--ease-out),
+    background var(--dur-base) var(--ease-out);
+}
+
+.choice-icon .icon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.choice[aria-checked="true"] .choice-icon {
+  color: var(--on-primary);
+  background: var(--gradient);
+  box-shadow: 0 6px 16px -8px color-mix(in oklch, var(--primary) 80%, transparent);
+}
+
+.choice-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.choice-name {
+  font-size: var(--text-body);
+  font-weight: var(--weight-semibold);
+}
+
+.choice-desc {
+  font-size: var(--text-small);
+  color: var(--ink-2);
+}
+
+.needs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.875rem;
+  margin-top: 0.375rem;
+}
+
+.need {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: var(--text-micro);
+  font-weight: var(--weight-medium);
+  color: var(--ink-2);
+}
+
+.need .icon {
+  width: 0.8125rem;
+  height: 0.8125rem;
+}
+
+/* Small brand icon base: who the route passes through */
+.mini-tile {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  color: var(--ink);
+  background: var(--surface-solid);
+  border-radius: var(--radius-control);
+  box-shadow: 0 0 0 1px var(--line);
+}
+
+.mini-tile > :is(.provider-icon, .icon) {
+  width: 0.9375rem;
+  height: 0.9375rem;
+}
+
+/* Providers on the route: a row of small icons, names on hover */
+.brands {
+  display: flex;
+  gap: 0.25rem;
+}
+
+/* ---------- Prepare: the route ---------- */
+
+.route {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0.625rem 0.875rem;
+  list-style: none;
+  font-size: var(--text-small);
+  background: var(--surface);
+  border-radius: var(--radius-block);
+  box-shadow: var(--edge);
+}
+
+.route li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.route-end {
+  color: var(--ink-2);
+}
+
+.route-end .icon {
+  width: 0.9375rem;
+  height: 0.9375rem;
+}
+
+.route-hop {
+  font-weight: var(--weight-semibold);
+}
+
+.route-arrow {
+  color: var(--ink-2);
+}
+
+.route-arrow .icon {
+  width: 0.875rem;
+  height: 0.875rem;
+  opacity: 0.6;
+}
+
+.plan-status {
+  margin-top: 0.75rem;
+}
+
+.plan-status > .callout {
+  align-items: center;
+}
+
+.plan-status .retry {
+  margin-left: auto;
+}
+
+/* ---------- Prepare: on-device model, provider choice ---------- */
+
+.prepare-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.section-label {
+  margin: 0 0 0.625rem;
+  font-size: var(--text-small);
+  font-weight: var(--weight-semibold);
+  color: var(--ink-2);
+}
+
+.section-hint {
+  margin-top: 0.625rem;
+  font-size: var(--text-small);
+  color: var(--ink-2);
+}
+
+.prepare-section > .callout {
+  margin-top: 0.625rem;
+}
+
+/* On-device model: one row, icon on the left, name and size in the middle, download / progress / downloaded on the right */
+.model-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: var(--surface);
+  border-radius: var(--radius-card);
+  box-shadow: var(--edge);
+}
+
+.model-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.model-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: var(--text-body);
+  font-weight: var(--weight-semibold);
+}
+
+.model-meta {
+  font-size: var(--text-small);
+  color: var(--ink-2);
+}
+
+/* The right cell has a fixed width: switching between download, progress, and downloaded doesn't shift the left */
+.model-action {
+  display: flex;
+  justify-content: flex-end;
+  width: 7.5rem;
+}
+
+.model-action > * {
+  width: 100%;
+  height: var(--control-md);
+}
+
+/* Provider choice: one per row, the selected row expands to enter a key */
+.vendor-list {
+  background: var(--surface);
+  border-radius: var(--radius-card);
+  box-shadow: var(--edge);
+}
+
+/* Corners follow the whole block: hover backgrounds on the first and last rows don't poke out */
+.vendor {
+  overflow: hidden;
+}
+
+.vendor + .vendor {
+  border-top: 1px solid var(--line);
+}
+
+.vendor:first-child {
+  border-radius: var(--radius-card) var(--radius-card) 0 0;
+}
+
+.vendor:last-child {
+  border-radius: 0 0 var(--radius-card) var(--radius-card);
+}
+
+.vendor[data-open] {
+  background: color-mix(in oklch, var(--primary) 4%, transparent);
+}
+
+.vendor-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  min-height: 3.25rem;
+  padding: 0.5rem 1rem;
+  font: inherit;
+  text-align: left;
+  color: var(--ink);
+  background: none;
+  border: none;
+  border-radius: 0;
+  cursor: pointer;
+}
+
+.vendor:not([data-open]) .vendor-head:hover {
+  background: var(--fill-hover);
+}
+
+.vendor-head:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+
+.vendor-name {
+  font-size: var(--text-body);
+  font-weight: var(--weight-semibold);
+}
+
+/* Whether there is a key: set up ones get a green dot */
+.vendor-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: var(--text-small);
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.vendor-key[data-tone="ok"] {
+  color: var(--ok);
+}
+
+.vendor-key[data-tone="ok"]::before {
+  content: "";
+  width: 0.4rem;
+  height: 0.4rem;
+  background: currentColor;
+  border-radius: 50%;
+}
+
+/* The expanded part aligns with the name: it leaves room for the icon column (2rem plus the gap) */
+.vendor-body {
+  padding: 0 1rem 1rem 3.75rem;
+}
+
+.vendor-body .key-state-row {
+  min-height: var(--control-sm);
+}
+
+.vendor-body .state[data-tone="pending"] {
+  color: var(--ink-2);
+}
+
+.vendor-body .key-form {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.625rem;
+}
+
+/* Key input: one block, a key icon in front and a paste button behind; focused, the whole block gets a ring in the theme color */
+.key-field {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  height: var(--control-md);
+  padding: 0 0.125rem 0 0.625rem;
+  color: var(--ink-2);
+  background: var(--surface-solid);
+  border-radius: var(--radius-control);
+  box-shadow: var(--ring), var(--shadow-control);
+  cursor: text;
+  transition: box-shadow var(--dur-fast) var(--ease-out);
+}
+
+.key-field:hover {
+  box-shadow: var(--ring-strong), var(--shadow-control);
+}
+
+.key-field:focus-within {
+  box-shadow:
+    0 0 0 1px color-mix(in oklch, var(--primary) 70%, transparent),
+    0 0 0 4px color-mix(in oklch, var(--primary) 16%, transparent);
+}
+
+.key-field > .icon {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.key-input {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  font: inherit;
+  font-family: var(--font-mono);
+  font-size: var(--text-small);
+  color: var(--ink);
+  background: none;
+  border: none;
+  outline: none;
+}
+
+.key-input::placeholder {
+  font-family: var(--font);
+  color: var(--ink-2);
+}
+
+.paste-key {
+  width: var(--control-sm);
+  height: var(--control-sm);
+}
+
+.paste-key .icon {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.vendor-body .save-key {
+  min-width: 5rem;
+}
+
+.vendor-body .key-problem {
+  margin-top: 0.5rem;
+}
+
+.vendor-body .links {
+  gap: 1rem;
+  margin-top: 0.625rem;
+}
+
+.key-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0;
+  font: inherit;
+  font-size: var(--text-small);
+  font-weight: var(--weight-medium);
+  color: var(--ink-2);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.key-link:hover {
+  color: var(--ink);
+}
+
+.key-link:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.key-link .icon {
+  width: 0.8125rem;
+  height: 0.8125rem;
+}
+
+/* ---------- Back, skip onboarding, and continue at the bottom ---------- */
+
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem 2rem 1.5rem;
+}
+
+.nav > .button {
+  min-width: 6rem;
+}
+
+/* The first step has no "Back": skip and continue stay on the right */
+#skip-all {
+  margin-left: auto;
+}
+
+/* ---------- Permissions ---------- */
+
+.grants {
+  display: flex;
+  flex-direction: column;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  list-style: none;
+  background: var(--surface);
+  border-radius: var(--radius-card);
+  box-shadow: var(--edge);
+}
+
+.grants li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 3.5rem;
+  padding: 0.5rem 1rem;
+}
+
+.grants li + li {
+  border-top: 1px solid var(--line);
+}
+
+.grant-primary {
+  font-weight: var(--weight-semibold);
+}
+
+.grants .button {
+  min-width: 6rem;
+}
+
+/* Once granted, the button becomes a check mark and can't be clicked */
+.grants [data-granted="true"] > .button {
+  color: var(--ok);
+  background: color-mix(in oklch, var(--ok) 12%, transparent);
+  box-shadow: none;
+}
+
+.privacy {
+  gap: 1.25rem;
+}
+
+.privacy-name {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-weight: var(--weight-semibold);
+}
+
+/* The same small tile as the permission rows on the left */
+.privacy-name .logo-tile {
+  color: var(--primary);
+}
+
+/* ---------- Microphone and shortcut tests ---------- */
+
+.question {
+  margin: 0.5rem 0 0.75rem;
+  font-weight: var(--weight-semibold);
+}
+
+.answers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.meter-panel,
+.keycap-panel {
+  align-items: center;
+}
+
+.meter {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: 8rem;
+}
+
+.meter span {
+  width: 0.75rem;
+  height: 0.75rem;
+  background: var(--gradient);
+  border-radius: var(--radius-full);
+  transition: height 80ms linear;
+}
+
+.big-keycap {
+  display: inline-grid;
+  place-items: center;
+  min-width: 7rem;
+  height: 5.5rem;
+  padding: 0 1.5rem;
+  font: inherit;
+  font-size: var(--text-figure);
+  font-family: var(--font-rounded);
+  font-weight: var(--weight-semibold);
+  background: var(--surface-solid);
+  border-radius: var(--radius-card);
+  box-shadow:
+    0 0 0 1px var(--line),
+    0 4px 0 var(--line);
+  transition:
+    color var(--dur-fast) var(--ease-out),
+    translate var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
+}
+
+/* Pressed: switches to the theme gradient, sinks a little, with a glow of the same color underneath */
+.big-keycap[data-pressed] {
+  color: var(--on-primary);
+  background: var(--gradient);
+  translate: 0 3px;
+  box-shadow:
+    0 0 0 1px transparent,
+    0 10px 30px -8px var(--primary);
+}
+
+.hotkey-choice {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  font-size: var(--text-small);
+}
+
+/* ---------- Try it ---------- */
+
+.sample {
+  margin: 0 0 1.25rem;
+  padding: 0.9rem 1.1rem;
+  background: var(--surface);
+  border-radius: var(--radius-block);
+  box-shadow: var(--edge);
+}
+
+/* Not connected to a model yet, or the model still downloading: say so */
+.readiness {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: var(--text-small);
+  border-radius: var(--radius-control);
+  background: var(--fill-hover);
+}
+
+.readiness .icon {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.readiness[data-tone="problem"] {
+  background: color-mix(in oklch, var(--problem) 9%, transparent);
+}
+
+.readiness[data-tone="problem"] .icon {
+  color: var(--problem);
+}
+
+.readiness-fix {
+  margin-left: auto;
+}
+
+.notes {
+  justify-content: flex-start;
+  padding: 1.5rem;
+}
+
+.notes-text {
+  flex: 1;
+  transition: box-shadow var(--dur-fast) var(--ease-out);
+  min-height: 14rem;
+  padding: 1rem;
+  font: inherit;
+  color: var(--ink);
+  background: var(--surface-solid);
+  border: none;
+  border-radius: var(--radius-block);
+  box-shadow: 0 0 0 1px var(--line);
+  resize: none;
+}
+
+.notes-text::placeholder {
+  color: var(--ink-2);
+}
+
+.notes-text:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 1px color-mix(in oklch, var(--primary) 70%, transparent),
+    0 0 0 4px color-mix(in oklch, var(--primary) 16%, transparent);
+}
+
+/* ---------- Done ---------- */
+
+.step.done {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.done .step-title {
+  margin-bottom: 1.5rem;
+}
+
+/* The state of three things: recognition mode, shortcut, microphone */
+.summary {
+  width: min(100%, 28rem);
+  margin: 0 0 2rem;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+  background: var(--surface);
+  border-radius: var(--radius-card);
+  box-shadow: var(--edge);
+}
+
+.summary-item {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 3.25rem;
+  padding: 0.5rem 1rem;
+}
+
+.summary-item + .summary-item {
+  border-top: 1px solid var(--line);
+}
+
+.summary-label {
+  font-size: var(--text-small);
+  color: var(--ink-2);
+}
+
+.summary-value {
+  justify-self: end;
+  font-size: var(--text-small);
+  font-weight: var(--weight-semibold);
+  text-align: right;
+}
+
+.summary [data-tone="problem"] .summary-value {
+  color: var(--problem);
+}
+
+.summary [data-tone="progress"] .summary-value {
+  color: var(--ink-2);
+}
+
+.button.big {
+  min-width: 10rem;
+  height: var(--control-lg);
+  padding: 0 1.75rem;
+  font-size: var(--text-body);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .step {
+    animation: none;
+  }
+
+  .step-groups button,
+  .step-groups button::after,
+  .choice,
+  .choice-icon,
+  .key-field,
+  .meter span,
+  .big-keycap {
+    transition: none;
+  }
+}

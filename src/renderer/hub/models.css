@@ -1,0 +1,448 @@
+/* The sidebar's "Models" page (models.mjs): title and search, the model library's categories and filters, lists grouped by maker, and keys.
+   All controls come from shared/window.css; this file only does layout.
+   The main window defaults to 1080x750 with a 988x685 minimum: at both widths the status and action columns line up row to row. */
+
+.page[data-route="models"] {
+  container: page / inline-size;
+}
+
+/* ---------- Right of the title row: search and presets ---------- */
+
+.page-tools {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* When too narrow, the whole group wraps under the title instead of squeezing the search box (its placeholder would be cut off) */
+.search {
+  position: relative;
+  display: flex;
+  flex: 0 1 18rem;
+  min-width: 15rem;
+  align-items: center;
+}
+
+.search .icon {
+  position: absolute;
+  left: 0.875rem;
+  color: var(--ink-2);
+  pointer-events: none;
+}
+
+.search .input {
+  width: 100%;
+  height: var(--control-lg);
+  padding: 0 1rem 0 2.5rem;
+  background: var(--surface);
+  border: none;
+  border-radius: var(--radius-full);
+  box-shadow: var(--edge);
+  transition: box-shadow var(--dur-fast) var(--ease-out);
+}
+
+.search .input:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 1px var(--primary),
+    0 0 0 4px color-mix(in oklch, var(--primary) 18%, transparent);
+}
+
+/* ---------- Model library: categories and toolbar ---------- */
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1.5rem;
+  min-height: var(--control-md);
+  margin: 1.25rem 0 1.5rem;
+}
+
+.makers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.toolbar-lead {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: var(--text-small);
+  color: var(--ink-2);
+}
+
+.toolbar-lead .icon {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.toolbar-end {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  margin-left: auto;
+}
+
+.unit {
+  font-size: var(--text-micro);
+  font-weight: var(--weight-medium);
+  color: var(--ink-2);
+}
+
+/* This category isn't in the current recognition mode: a faintly shaded line of explanation, with a button back to Home to switch modes on the right */
+.standby {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: -0.5rem 0 1.25rem;
+  padding: 0.375rem 0.375rem 0.375rem 0.75rem;
+  font-size: var(--text-small);
+  color: var(--ink-2);
+  background: var(--fill-hover);
+  border-radius: var(--radius-control);
+}
+
+.standby > .icon {
+  flex: none;
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.standby > span {
+  flex: 1;
+  text-wrap: pretty;
+}
+
+/* ---------- Groups: heading (icon base, name, count, description) + channels, with a table below ---------- */
+
+.groups {
+  display: flex;
+  flex-direction: column;
+  gap: 2.25rem;
+}
+
+.group {
+  container: group / inline-size;
+}
+
+.group-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.875rem;
+}
+
+.group-titles {
+  min-width: 0;
+}
+
+.group-title-line {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.group-name {
+  margin: 0;
+  font-size: var(--text-heading);
+  font-weight: var(--weight-semibold);
+  line-height: 1.3;
+}
+
+.group-count {
+  font-size: var(--text-small);
+  font-weight: var(--weight-semibold);
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.group-meta {
+  font-size: var(--text-small);
+  color: var(--ink-2);
+}
+
+.channel {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  margin-left: auto;
+}
+
+.channel-label {
+  font-size: var(--text-micro);
+  font-weight: var(--weight-medium);
+  color: var(--ink-2);
+}
+
+/* ---------- Tables ---------- */
+
+/* Row padding left and right is absorbed by the first and last columns (the subgrid rule), so the last column adds 1rem back to make the action buttons a full 6rem */
+.table {
+  /* Data column widths are written in by models.mjs per group; tables without data columns (custom services) don't set them, and the var() below falls through */
+  --metric-cols: initial;
+  grid-template-columns: minmax(0, 1fr) var(--metric-cols,) var(--col-status) calc(var(--col-action) + 1rem);
+}
+
+.metrics {
+  display: contents;
+}
+
+.cell-name {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-width: 0;
+}
+
+.name-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.name-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+}
+
+.name-tags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.name {
+  font-size: var(--text-body);
+  font-weight: var(--weight-semibold);
+  line-height: 1.35;
+}
+
+/* Dense tables (on-device models): tags sit on the line under the name, names don't wrap, and all rows are the same height */
+.table[data-dense] .name-line {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.table[data-dense] .name {
+  white-space: nowrap;
+}
+
+.table[data-dense] {
+  column-gap: 0.625rem;
+}
+
+/* The status column's header is centered over the full-width pills below */
+.head-status {
+  text-align: center;
+}
+
+.row-notice {
+  min-height: 3.25rem;
+  background: color-mix(in oklch, var(--ink) 2.5%, transparent);
+}
+
+.notice-text {
+  display: inline-flex;
+  grid-column: 1 / -2;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: var(--text-small);
+  color: var(--ink-2);
+}
+
+.notice-text .icon {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.notice-text b {
+  font-weight: var(--weight-semibold);
+  color: var(--ink);
+}
+
+.desc {
+  font-size: var(--text-small);
+  line-height: 1.45;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.desc b {
+  font-weight: var(--weight-semibold);
+  color: var(--ink);
+}
+
+/* Failure notes align with the name's text, not the icon column */
+.row:has(> .cell-name > .provider-icon) > :is(.callout, .key-form) {
+  margin-left: 1.75rem;
+}
+
+.row:has(> .cell-name > .logo-tile) > :is(.callout, .key-form) {
+  margin-left: 2.625rem;
+}
+
+/* ---------- Keys ---------- */
+
+.key-value {
+  font-size: var(--text-small);
+  color: var(--ink);
+}
+
+.key-value[data-empty] {
+  color: var(--ink-2);
+}
+
+.row[data-open] {
+  background: color-mix(in oklch, var(--ink) 2.5%, transparent);
+}
+
+.key-form {
+  display: flex;
+  flex-wrap: wrap;
+  grid-column: 1 / -1;
+  align-items: center;
+  gap: 0.5rem 0.625rem;
+  margin-top: 0.75rem;
+  margin-bottom: 0.25rem;
+}
+
+.key-form .input {
+  flex: 1 1 16rem;
+  height: var(--control-md);
+  font-family: var(--font-mono);
+}
+
+.key-form .input::placeholder {
+  font-family: var(--font);
+}
+
+.key-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-left: 0.25rem;
+  font-size: var(--text-small);
+  font-weight: var(--weight-medium);
+  color: var(--ink-2);
+  text-decoration: none;
+}
+
+.key-link:hover {
+  color: var(--ink);
+}
+
+.key-link .icon {
+  width: 0.8125rem;
+  height: 0.8125rem;
+}
+
+/* ---------- Empty states, footnotes, hints ---------- */
+
+.empty {
+  display: grid;
+  justify-items: center;
+  gap: 0.375rem;
+  padding: 3rem 1rem;
+  text-align: center;
+  background: var(--surface);
+  border-radius: var(--radius-card);
+  box-shadow: var(--edge);
+}
+
+.empty-title {
+  font-size: var(--text-body);
+  font-weight: var(--weight-semibold);
+}
+
+.empty-meta {
+  margin-bottom: 0.75rem;
+  font-size: var(--text-small);
+  color: var(--ink-2);
+}
+
+.empty-meta:empty {
+  display: none;
+}
+
+.plaza-note {
+  margin: 2.5rem 0 1rem;
+  font-size: var(--text-micro);
+  color: var(--ink-2);
+}
+
+/* ---------- When columns are too narrow: first shrink the dense table's status column to icons, then move data columns to a second line ---------- */
+
+@container group (max-width: 46rem) {
+  .table[data-dense] {
+    --col-status: var(--control-sm);
+  }
+
+  .table[data-dense] .cell-status .label {
+    display: none;
+  }
+
+  .table[data-dense] .cell-status > * {
+    padding: 0;
+  }
+
+  .table[data-dense] .head-status {
+    visibility: hidden;
+  }
+}
+
+@container group (max-width: 36rem) {
+  .table {
+    grid-template-columns: minmax(0, 1fr) var(--col-status) calc(var(--col-action) + 1rem);
+  }
+
+  .row-head {
+    display: none;
+  }
+
+  .row > .metrics {
+    display: flex;
+    flex-wrap: wrap;
+    grid-row: 2;
+    grid-column: 1 / -1;
+    gap: 0.5rem 1.25rem;
+    margin-top: 0.625rem;
+    padding-left: 1.75rem;
+  }
+
+  .row > .metrics:empty {
+    display: none;
+  }
+
+  .metrics > .metric {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .metrics > :is(.metric, .metric-none)::before {
+    content: attr(data-label);
+    order: -1;
+    font-size: var(--text-micro);
+    font-weight: var(--weight-medium);
+    color: var(--ink-2);
+  }
+
+  .channel {
+    flex-basis: 100%;
+    margin-left: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .search .input {
+    transition: none;
+  }
+}

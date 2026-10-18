@@ -1,0 +1,160 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { createTranslator, msg } from "../../../src/i18n/index.mjs";
+import { ModelError } from "../../../src/server/providers/errors.mjs";
+import { POLISH_PROMPT, polishInput } from "../../../src/server/refine/polish-prompt.mjs";
+import { createChatPolisher, createPolisher } from "../../../src/server/refine/polisher.mjs";
+import { NO_SPEECH_MARK } from "../../../src/server/refine/prompt.mjs";
+
+const en = createTranslator("en");
+const quiet = { info() {}, warn() {}, error() {} };
+const USAGE = {
+  model: "qwen3:4b-instruct",
+  inputTokens: 1043,
+  audioTokens: 0,
+  cachedTokens: 1000,
+  outputTokens: 14,
+  thinkingTokens: 0,
+  costUsd: 0,
+};
+
+/** Fake protocol client: records requests and answers with the given replies in order (throws an Error reply) */
+function fakeClient(...replies) {
+  const requests = [];
+  const client = {
+    async ping(request) {
+      requests.push({ ping: request });
+      const reply = replies.shift();
+      if (reply instanceof Error) throw reply;
+      return reply ?? { usage: USAGE };
+    },
+    async complete(request) {
+      requests.push(request);
+      const reply = replies.shift();
+      if (reply instanceof Error) throw reply;
+      return reply;
+    },
+  };
+  return { client, requests };
+}
+
+const polisherWith = (client, extra = {}) =>
+  createPolisher({ endpoint: { id: "ollama", name: "Ollama" }, client, log: quiet, ...extra });
+
+test("the no-speech marker in the prompt is the one the finishing step checks; the transcript goes in tags", () => {
+  assert.ok(POLISH_PROMPT.includes(`output only ${NO_SPEECH_MARK} and nothing else`));
+  assert.equal(polishInput("raw text"), "<transcript>raw text</transcript>");
+});
+
+test("the transcript goes to the model and the result goes through the finishing step", async () => {
+  const { client, requests } = fakeClient({ text: '"I looked at this bug."', problem: null, usage: USAGE });
+  const polisher = polisherWith(client);
+  assert.equal(await polisher.polish("um I I looked at this bug", { audioId: "a1" }), "I looked at this bug.");
+  assert.equal(requests[0].system, POLISH_PROMPT);
+  assert.equal(requests[0].user, polishInput("um I I looked at this bug"));
+});
+
+test("an empty transcript (nothing transcribed) never calls the model and gives empty text", async () => {
+  const { client, requests } = fakeClient();
+  const polisher = polisherWith(client);
+  assert.equal(await polisher.polish("  \n", {}), "");
+  assert.equal(requests.length, 0);
+});
+
+test("when the model finds nothing to type (outputs the marker) the result is empty", async () => {
+  const { client } = fakeClient({ text: NO_SPEECH_MARK, problem: null, usage: USAGE });
+  assert.equal(await polisherWith(client).polish("Um.", {}), "");
+});
+
+test("a client disconnect cancels the request: the signal given to the protocol client follows it", async () => {
+  const { client, requests } = fakeClient({ text: "OK", problem: null, usage: USAGE });
+  const abort = new AbortController();
+  await polisherWith(client).polish("OK", { signal: abort.signal });
+  assert.equal(requests[0].signal.aborted, false);
+  abort.abort();
+  assert.equal(requests[0].signal.aborted, true);
+});
+
+test("a reply that can't be used (truncated) is billed first, then reported as a classified error", async () => {
+  const calls = [];
+  const problem = msg("model.unfinished", { provider: "Ollama", reason: "length" });
+  const { client } = fakeClient({ text: null, problem, usage: USAGE });
+  const polisher = polisherWith(client, { onCall: (call) => calls.push(call) });
+  const error = await polisher.polish("raw text", { audioId: "a1" }).catch((e) => e);
+  assert.ok(error instanceof ModelError);
+  assert.equal(en.text(error.problem), "Ollama didn't finish normally: length");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].purpose, "dictation");
+  assert.equal(calls[0].audioId, "a1");
+  assert.equal(calls[0].provider, "ollama");
+});
+
+test("every cleanup is recorded: which dictation, which vendor, tokens, cost, and time", async () => {
+  const calls = [];
+  const { client } = fakeClient({ text: "Sounds good", problem: null, usage: USAGE });
+  await polisherWith(client, { onCall: (call) => calls.push(call) }).polish("sounds good", { audioId: "a9" });
+  assert.equal(calls.length, 1);
+  const { latencyMs, createdAt, ...call } = calls[0];
+  assert.ok(Number.isInteger(latencyMs));
+  assert.ok(!Number.isNaN(Date.parse(createdAt)));
+  assert.deepEqual(call, { purpose: "dictation", audioId: "a9", provider: "ollama", ...USAGE });
+});
+
+test("warmUp sends the protocol client's smallest request and records a check; failures are classified too, without the key", async () => {
+  const calls = [];
+  const { client } = fakeClient({ usage: USAGE });
+  await polisherWith(client, { onCall: (call) => calls.push(call) }).warmUp();
+  assert.equal(calls[0].purpose, "check");
+
+  const failing = fakeClient(new Error("connect ECONNREFUSED sk-secret"));
+  failing.client.ping = async () => {
+    const error = new Error("fetch failed");
+    error.cause = { code: "ECONNREFUSED" };
+    throw error;
+  };
+  const error = await polisherWith(failing.client, { apiKey: "sk-secret" })
+    .warmUp()
+    .catch((e) => e);
+  assert.ok(error instanceof ModelError);
+  assert.equal(error.kind, "unavailable");
+  assert.match(en.text(error.problem), /Can't reach Ollama/);
+});
+
+test("createChatPolisher: sets up the chosen vendor's protocol, address, and parameters; the request really goes to that address", async () => {
+  const requests = [];
+  const fetch = async (url, init) => {
+    requests.push({ url, headers: init.headers, body: JSON.parse(init.body) });
+    return Response.json({
+      model: "qwen3:4b-instruct",
+      choices: [{ finish_reason: "stop", message: { content: "Sounds good." } }],
+      usage: { prompt_tokens: 10, completion_tokens: 2 },
+    });
+  };
+  const polisher = await createChatPolisher({
+    choice: { vendor: "ollama", model: "qwen3:4b-instruct" },
+    log: quiet,
+    fetch,
+  });
+  assert.equal(await polisher.polish("sounds good", {}), "Sounds good.");
+  assert.equal(requests[0].url, "http://localhost:11434/v1/chat/completions");
+  assert.equal(requests[0].body.model, "qwen3:4b-instruct");
+  assert.equal("Authorization" in requests[0].headers, false);
+});
+
+test("createChatPolisher: custom uses the address from settings and names its host in errors; no address fails right away", async () => {
+  const fetch = async () => new Response("<html>nope</html>", { status: 404 });
+  const polisher = await createChatPolisher({
+    choice: { vendor: "custom", model: "qwen3:8b" },
+    customUrl: "http://127.0.0.1:11434/v1/",
+    apiKey: "ollama",
+    log: quiet,
+    fetch,
+  });
+  const error = await polisher.polish("sounds good", {}).catch((e) => e);
+  assert.ok(error instanceof ModelError);
+  assert.match(en.text(error.problem), /127\.0\.0\.1:11434 has no chat API at this address/);
+
+  await assert.rejects(createChatPolisher({ choice: { vendor: "custom", model: "m" }, apiKey: "k", log: quiet }), (e) =>
+    /address/.test(en.text(e.problem)),
+  );
+});

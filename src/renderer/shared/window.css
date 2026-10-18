@@ -1,0 +1,1046 @@
+/* The base for normal windows (main window, onboarding): glow, glass, type, and every standard control (buttons, inputs, states,
+   selection controls, lists). Follows the system light/dark setting.
+   Colors come from the theme (the "window" group in src/themes, one light and one dark); type sizes, radii, and motion are in tokens.css.
+   Behind the window are two glows in the theme color (aura, aura2); the sidebar and dialogs are glass the light shows through,
+   and primary buttons and the dictation card use a gradient from primary to glow. Grays are mixed from the body text color as translucent layers
+   (hover fill 7%, selected 15%, thin container 5%, thin border 7%). */
+
+:root {
+  color-scheme: light dark;
+  --fill-thin: color-mix(in oklab, var(--ink) 4%, var(--bg));
+  --fill-hover: color-mix(in oklch, var(--ink) 6%, transparent);
+  --fill-selected: color-mix(in oklch, var(--ink) 10%, transparent);
+  --line: color-mix(in oklch, var(--ink) 8%, transparent);
+
+  /* The theme gradient: primary buttons, the dictation card, progress, levels */
+  --gradient: linear-gradient(135deg, var(--primary), var(--glow));
+  /* The two glows behind the window, always still: this is what shows through the glass */
+  --aura-layer:
+    radial-gradient(56rem 38rem at -8% -12%, var(--aura), transparent 72%),
+    radial-gradient(48rem 34rem at 108% 112%, var(--aura-2), transparent 72%);
+  /* Surfaces floating on the light: cards, lists. Translucent, tinted slightly by the light */
+  --surface: color-mix(in oklch, var(--bg) 74%, transparent);
+  /* The selected item: a little more solid than the surface */
+  --surface-solid: var(--bg);
+  /* Glass: more transparent, blurring what is behind and lifting its color slightly */
+  --glass: color-mix(in oklch, var(--bg) 46%, transparent);
+  --glass-filter: blur(28px) saturate(1.7);
+  /* Glass for dialogs with a full page of text to read: more solid */
+  --glass-strong: color-mix(in oklch, var(--bg) 82%, transparent);
+  /* A bright line along a surface's top edge: the background (white) in light mode, a faint body text color in dark */
+  --sheen: color-mix(in oklch, var(--bg) 90%, transparent);
+  --edge: 0 0 0 1px var(--line), inset 0 1px 0 var(--sheen);
+  /* Control outlines: a thin line at rest, darker on hover */
+  --ring: 0 0 0 1px var(--border);
+  --ring-strong: 0 0 0 1px color-mix(in oklch, var(--ink) 24%, transparent);
+  --shadow-control: 0 1px 2px oklch(0 0 0 / 0.06);
+  --lift: 0 1px 2px oklch(0 0 0 / 0.04), 0 10px 30px -12px oklch(0 0 0 / 0.12);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface: color-mix(in oklch, var(--raised) 46%, transparent);
+    --surface-solid: var(--raised);
+    --glass: color-mix(in oklch, var(--bg) 52%, transparent);
+    --glass-strong: color-mix(in oklch, var(--bg) 78%, transparent);
+    --sheen: color-mix(in oklch, var(--ink) 9%, transparent);
+    --lift: 0 1px 2px oklch(0 0 0 / 0.3), 0 12px 32px -12px oklch(0 0 0 / 0.5);
+  }
+}
+
+/* "Reduce transparency" is on in the system: glass becomes solid */
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --surface: var(--surface-solid);
+    --glass: var(--fill-thin);
+    --glass-strong: var(--bg);
+    --glass-filter: none;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* Elements with display set override the hidden attribute: let hidden always win */
+[hidden] {
+  /* biome-ignore lint/complexity/noImportantStyles: the only way to beat the display rules elsewhere; hidden should win anyway */
+  display: none !important;
+}
+
+/* Buttons first drop the browser's built-in look (gray background, raised border, system font): if a button's style is missing or deleted,
+   it falls back to plain text, not a gray system button. :where has no specificity, so the standard buttons still override it */
+:where(button) {
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+body {
+  margin: 0;
+  color: var(--ink);
+  background: var(--aura-layer), var(--bg);
+  font: var(--text-body) / 1.6 var(--font);
+  font-kerning: normal;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Small rounded tags: a model's traits, a model's quantization, "On device" and the like. A step smaller than descriptions, set apart by a background */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.0625rem 0.45rem;
+  font-size: var(--text-micro);
+  font-weight: var(--weight-medium);
+  line-height: 1.5;
+  color: var(--ink-2);
+  white-space: nowrap;
+  background: var(--fill-hover);
+  border-radius: var(--radius-full);
+}
+
+/* States with a small dot: ready, in use, error. The dot matches the text color */
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: var(--text-small);
+  font-weight: var(--weight-medium);
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.status[data-tone="ok"] {
+  color: var(--ok);
+}
+
+.status[data-tone="problem"] {
+  color: var(--problem);
+}
+
+.status[data-tone]::before {
+  content: "";
+  flex: none;
+  width: 0.4rem;
+  height: 0.4rem;
+  background: currentColor;
+  border-radius: 50%;
+}
+
+p {
+  margin: 0;
+}
+
+.problem {
+  color: var(--problem);
+}
+
+.icon {
+  width: 1rem;
+  height: 1rem;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Model maker icons (shared/provider-icons.mjs): solid, following the text color */
+.provider-icon {
+  width: 1.125rem;
+  height: 1.125rem;
+  flex: none;
+  fill: currentColor;
+}
+
+/* ---------- Buttons: secondary (default), primary, ghost, small; .block fills the column ---------- */
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  height: var(--control-md);
+  padding: 0 0.875rem;
+  font: inherit;
+  font-size: var(--text-small);
+  font-weight: var(--weight-medium);
+  line-height: 1;
+  color: var(--ink);
+  white-space: nowrap;
+  background: var(--surface-solid);
+  border: none;
+  border-radius: var(--radius-control);
+  box-shadow: var(--ring), var(--shadow-control);
+  cursor: pointer;
+  transition:
+    box-shadow var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    filter var(--dur-fast) var(--ease-out),
+    scale var(--dur-fast) var(--ease-out);
+}
+
+.button .icon {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.button:hover {
+  background-color: var(--surface-solid);
+  box-shadow:
+    var(--ring-strong),
+    0 1px 3px oklch(0 0 0 / 0.08);
+}
+
+.button:active:not(:disabled) {
+  scale: 0.97;
+}
+
+.button:disabled {
+  color: var(--ink-2);
+  cursor: default;
+  box-shadow: 0 0 0 1px var(--line);
+}
+
+.button.primary {
+  font-weight: var(--weight-semibold);
+  color: var(--on-primary);
+  background: var(--gradient);
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklch, var(--on-primary) 18%, transparent),
+    0 1px 2px oklch(0 0 0 / 0.12),
+    0 6px 16px -8px color-mix(in oklch, var(--primary) 70%, transparent);
+}
+
+.button.primary:hover {
+  filter: brightness(1.06) saturate(1.08);
+}
+
+.button.ghost {
+  color: var(--ink-2);
+  background: transparent;
+  box-shadow: none;
+}
+
+.button.ghost:hover {
+  color: var(--ink);
+  background: var(--fill-hover);
+}
+
+.button.small {
+  height: var(--control-sm);
+  padding: 0 0.625rem;
+}
+
+.button.block {
+  width: 100%;
+}
+
+.button.primary:disabled {
+  color: var(--ink-2);
+  background: var(--fill-hover);
+  box-shadow: none;
+  filter: none;
+}
+
+.icon-button {
+  display: inline-grid;
+  place-items: center;
+  width: var(--control-md);
+  height: var(--control-md);
+  padding: 0;
+  color: var(--ink-2);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+
+.icon-button:hover {
+  color: var(--ink);
+  background: var(--fill-hover);
+}
+
+.link {
+  padding: 0;
+  font: inherit;
+  font-size: var(--text-small);
+  color: var(--ink);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: var(--line);
+  text-underline-offset: 0.25em;
+}
+
+.link:hover {
+  text-decoration-color: currentColor;
+}
+
+:is(.button, .icon-button, .link, .input, .select, .switch):focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.input,
+.select {
+  height: var(--control-md);
+  min-width: 0;
+  padding: 0.35rem 0.7rem;
+  font: inherit;
+  font-size: var(--text-small);
+  color: var(--ink);
+  background: var(--surface-solid);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+}
+
+.input::placeholder {
+  color: var(--ink-2);
+}
+
+/* Switches: used for every boolean setting */
+.switch {
+  appearance: none;
+  position: relative;
+  flex: none;
+  width: 2.25rem;
+  height: 1.25rem;
+  margin: 0;
+  background: var(--fill-selected);
+  border-radius: var(--radius-full);
+  box-shadow: inset 0 0 0 1px var(--line);
+  cursor: pointer;
+  transition: background-color var(--dur-base) var(--ease-out);
+}
+
+.switch::before {
+  content: "";
+  position: absolute;
+  top: 0.125rem;
+  left: 0.125rem;
+  width: 1rem;
+  height: 1rem;
+  background: var(--bg);
+  border-radius: 50%;
+  box-shadow: 0 1px 2px oklch(0 0 0 / 0.25);
+  transition: translate var(--dur-base) var(--ease-out);
+}
+
+.switch:checked {
+  background: var(--gradient);
+}
+
+.switch:checked::before {
+  translate: 1rem 0;
+}
+
+.switch:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* ---------- The standard controls below: status boxes, check badges, tag tones, category tabs, segmented controls, filter pills,
+   full-row switches, radio marks, brand icon bases, lists ---------- */
+
+/* A status box taking a button's place but not clickable: "In use", "Selected". Same height and radius as buttons */
+.state-box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  height: var(--control-md);
+  padding: 0 0.75rem;
+  font-size: var(--text-small);
+  font-weight: var(--weight-semibold);
+  line-height: 1;
+  color: var(--ink-2);
+  white-space: nowrap;
+  border-radius: var(--radius-control);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+.state-box .icon {
+  width: 0.875rem;
+  height: 0.875rem;
+  stroke-width: 2.5;
+}
+
+.state-box[data-tone="accent"] {
+  color: color-mix(in oklch, var(--primary) 84%, var(--ink));
+  background: color-mix(in oklch, var(--primary) 11%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--primary) 26%, transparent);
+}
+
+.state-box[data-tone="standby"] {
+  background: transparent;
+  box-shadow: none;
+  outline: 1px dashed var(--border);
+  outline-offset: -1px;
+}
+
+.state-box.block {
+  width: 100%;
+}
+
+/* ---------- Status badges: check results, download progress. Pills with icons, a faint background with matching text ---------- */
+
+.badge {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  height: var(--control-sm);
+  padding: 0 0.625rem;
+  overflow: hidden;
+  font: inherit;
+  font-size: var(--text-small);
+  font-weight: var(--weight-medium);
+  line-height: 1;
+  color: var(--ink-2);
+  white-space: nowrap;
+  background: var(--fill-hover);
+  border: none;
+  border-radius: var(--radius-full);
+  isolation: isolate;
+}
+
+.badge .icon {
+  width: 0.875rem;
+  height: 0.875rem;
+  stroke-width: 2.25;
+}
+
+.badge.block {
+  width: 100%;
+}
+
+.badge[data-tone="ok"] {
+  color: var(--ok);
+  background: color-mix(in oklch, var(--ok) 13%, transparent);
+}
+
+.badge[data-tone="problem"] {
+  color: var(--problem);
+  background: color-mix(in oklch, var(--problem) 15%, transparent);
+}
+
+/* How far a download is (--p, 0 to 1) is written in by the page */
+.badge[data-tone="progress"] {
+  --p: 0;
+  color: var(--ink);
+}
+
+/* Download progress: the background fills from left to right */
+.badge[data-tone="progress"]::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  z-index: -1;
+  width: calc(var(--p, 0) * 100%);
+  background: color-mix(in oklch, var(--primary) 16%, transparent);
+  transition: width var(--dur-base) linear;
+}
+
+.spin {
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    rotate: 360deg;
+  }
+}
+
+/* The check mark animates when a check passes */
+.badge[data-fresh] .icon path {
+  stroke-dasharray: 24;
+  animation: draw var(--dur-slow) var(--ease-out) both;
+}
+
+@keyframes draw {
+  from {
+    stroke-dashoffset: 24;
+  }
+
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* The result badge is itself a button: hovering turns it into "Check again" */
+button.badge {
+  cursor: pointer;
+}
+
+.badge-face {
+  display: contents;
+}
+
+button.badge .badge-hover {
+  display: none;
+}
+
+button.badge:is(:hover, :focus-visible) .badge-face {
+  display: none;
+}
+
+button.badge:is(:hover, :focus-visible) .badge-hover {
+  display: contents;
+}
+
+button.badge:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Not checked yet: an outlined pill button, the same size as the result badge */
+.check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  height: var(--control-sm);
+  padding: 0 0.625rem;
+  font: inherit;
+  font-size: var(--text-small);
+  font-weight: var(--weight-medium);
+  line-height: 1;
+  color: var(--ink);
+  white-space: nowrap;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-full);
+  box-shadow: inset 0 0 0 1px var(--border);
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
+}
+
+.check .icon {
+  width: 0.875rem;
+  height: 0.875rem;
+  color: var(--ink-2);
+}
+
+.check:hover {
+  background: var(--fill-hover);
+  box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--ink) 24%, transparent);
+}
+
+.check:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.check.block {
+  width: 100%;
+}
+
+/* Failure notes: under the row with the problem, a faint background, an icon, a bold conclusion, and the raw error in monospace */
+.callout {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: var(--text-small);
+  line-height: 1.5;
+  color: var(--ink);
+  background: color-mix(in oklch, var(--problem) 9%, transparent);
+  border-radius: var(--radius-control);
+}
+
+.callout > .icon {
+  width: 0.875rem;
+  height: 0.875rem;
+  margin-top: 0.19rem;
+  color: var(--problem);
+}
+
+.callout b {
+  font-weight: var(--weight-semibold);
+  color: var(--problem);
+}
+
+.callout code {
+  font-family: var(--font-mono);
+  font-size: var(--text-micro);
+  color: var(--ink-2);
+}
+
+/* ---------- Tags: only four tones, plus outlined build tags like "Metal" ---------- */
+
+.tag[data-tone="accent"] {
+  color: color-mix(in oklch, var(--primary) 82%, var(--ink));
+  background: color-mix(in oklch, var(--primary) 12%, transparent);
+}
+
+.tag[data-tone="ok"] {
+  color: var(--ok);
+  background: color-mix(in oklch, var(--ok) 12%, transparent);
+}
+
+.tag[data-tone="problem"] {
+  color: var(--problem);
+  background: color-mix(in oklch, var(--problem) 14%, transparent);
+}
+
+.tag[data-tone="outline"] {
+  color: var(--ink);
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+/* ---------- Radio marks: the top right of card-style radios ---------- */
+
+.radio-mark {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 1.125rem;
+  height: 1.125rem;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px var(--border);
+  transition:
+    background-color var(--dur-base) var(--ease-out),
+    box-shadow var(--dur-base) var(--ease-out);
+}
+
+.radio-mark .icon {
+  width: 0.6875rem;
+  height: 0.6875rem;
+  color: var(--on-primary);
+  stroke-width: 3.5;
+  scale: 0;
+  transition: scale var(--dur-base) var(--ease-out);
+}
+
+:where([aria-checked="true"]) > .radio-mark {
+  background: var(--gradient);
+  box-shadow: 0 0 0 4px color-mix(in oklch, var(--primary) 15%, transparent);
+}
+
+:where([aria-checked="true"]) > .radio-mark .icon {
+  scale: 1;
+}
+
+/* ---------- Category tabs: the underline slides with the selection ---------- */
+
+.tabs {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  gap: 1.75rem;
+  box-shadow: inset 0 -1px 0 var(--line);
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: var(--control-lg);
+  padding: 0 0.125rem;
+  font: inherit;
+  font-size: var(--text-body);
+  font-weight: var(--weight-semibold);
+  color: var(--ink-2);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease-out);
+}
+
+.tab > .icon {
+  transition: color var(--dur-fast) var(--ease-out);
+}
+
+.tab:hover,
+.tab[aria-selected="true"] {
+  color: var(--ink);
+}
+
+.tab[aria-selected="true"] > .icon {
+  color: var(--primary);
+}
+
+.tab:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+  border-radius: var(--radius-control);
+}
+
+.tab.end {
+  margin-left: auto;
+}
+
+.count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.375rem;
+  height: 1.125rem;
+  padding: 0 0.375rem;
+  font-size: var(--text-micro);
+  font-weight: var(--weight-semibold);
+  line-height: 1;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+  background: var(--fill-hover);
+  border-radius: var(--radius-full);
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+
+.tab[aria-selected="true"] .count {
+  color: color-mix(in oklch, var(--primary) 84%, var(--ink));
+  background: color-mix(in oklch, var(--primary) 13%, transparent);
+}
+
+/* The slider's position and width (--x, --w) are written in by the page from the selected item */
+.indicator {
+  --x: 0px;
+  --w: 0px;
+  position: absolute;
+  left: 0;
+  width: var(--w, 0);
+  translate: var(--x, 0) 0;
+  pointer-events: none;
+  transition:
+    translate var(--dur-slide) var(--ease-out),
+    width var(--dur-slide) var(--ease-out);
+}
+
+.tabs > .indicator {
+  bottom: 0;
+  height: 2px;
+  background: var(--primary);
+  border-radius: 2px 2px 0 0;
+}
+
+/* ---------- Segmented controls: two to four mutually exclusive options, with a sliding thumb ---------- */
+
+.segmented {
+  position: relative;
+  display: inline-flex;
+  gap: 2px;
+  height: var(--control-md);
+  padding: 3px;
+  background: var(--fill-hover);
+  border-radius: calc(var(--radius-control) + 2px);
+}
+
+.segment {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0 0.75rem;
+  font: inherit;
+  font-size: var(--text-small);
+  font-weight: var(--weight-medium);
+  line-height: 1;
+  color: var(--ink-2);
+  white-space: nowrap;
+  background: none;
+  border: none;
+  border-radius: calc(var(--radius-control) - 1px);
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease-out);
+}
+
+.segment:hover,
+.segment[aria-checked="true"] {
+  color: var(--ink);
+}
+
+.segment:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+
+.segment .provider-icon {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.segment .key-mark {
+  width: 0.75rem;
+  height: 0.75rem;
+  color: var(--ok);
+  stroke-width: 3;
+}
+
+.segmented > .indicator {
+  top: 3px;
+  bottom: 3px;
+  background: var(--surface-solid);
+  border-radius: calc(var(--radius-control) - 1px);
+  box-shadow:
+    0 0 0 1px var(--line),
+    0 1px 3px oklch(0 0 0 / 0.1);
+}
+
+/* With only one option: the same shape, not clickable */
+.segmented[data-single] .segment {
+  cursor: default;
+}
+
+/* ---------- Filter pills: the selected one is inverted ---------- */
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  height: var(--control-sm);
+  padding: 0 0.75rem;
+  font: inherit;
+  font-size: var(--text-small);
+  font-weight: var(--weight-medium);
+  line-height: 1;
+  color: var(--ink);
+  white-space: nowrap;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-full);
+  box-shadow: inset 0 0 0 1px var(--border);
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
+}
+
+.pill .provider-icon {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.pill-count {
+  font-size: var(--text-micro);
+  font-weight: var(--weight-semibold);
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.pill:hover {
+  background: var(--fill-hover);
+}
+
+.pill[aria-pressed="true"] {
+  color: var(--bg);
+  background: var(--ink);
+  box-shadow: none;
+}
+
+.pill[aria-pressed="true"] .pill-count {
+  color: color-mix(in oklch, var(--bg) 66%, transparent);
+}
+
+.pill:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* ---------- Full-row switches: text on the left in the body color ---------- */
+
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
+  height: var(--control-sm);
+  font-size: var(--text-small);
+  font-weight: var(--weight-medium);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+/* ---------- Brand icon bases: group headings, key lists ---------- */
+
+.logo-tile {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  color: var(--ink);
+  background: var(--surface-solid);
+  border-radius: var(--radius-control);
+  box-shadow:
+    0 0 0 1px var(--line),
+    0 1px 2px oklch(0 0 0 / 0.06);
+}
+
+.logo-tile > :is(.provider-icon, .icon) {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+/* ---------- Lists: a header row, every row with the same cells; data columns right-aligned, status and action columns fixed-width ---------- */
+
+.table {
+  display: grid;
+  column-gap: 0.75rem;
+  background: var(--surface);
+  border-radius: var(--radius-card);
+  box-shadow: var(--edge), var(--lift);
+}
+
+.row {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  align-items: center;
+  min-height: 3.5rem;
+  padding: 0.625rem 1rem;
+}
+
+.row + .row {
+  border-top: 1px solid var(--line);
+}
+
+.row:last-child {
+  border-radius: 0 0 var(--radius-card) var(--radius-card);
+}
+
+.row-head {
+  min-height: 0;
+  padding-block: 0.625rem 0.5rem;
+  font-size: var(--text-micro);
+  font-weight: var(--weight-medium);
+  color: var(--ink-2);
+}
+
+.row-head + .row {
+  border-top-color: var(--line);
+}
+
+.row[data-current] {
+  background: color-mix(in oklch, var(--primary) 5%, transparent);
+}
+
+.cell-end {
+  justify-self: end;
+  text-align: right;
+}
+
+.cell-fill {
+  display: flex;
+  min-width: 0;
+}
+
+.cell-fill > * {
+  width: 100%;
+}
+
+.row > .callout {
+  grid-column: 1 / -1;
+  margin-top: 0.125rem;
+}
+
+/* Values: bold numbers, units and currency a step smaller; the best number in a column in green */
+.metric {
+  display: inline-flex;
+  align-items: baseline;
+}
+
+.metric-line {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.15rem;
+  white-space: nowrap;
+}
+
+.metric-value {
+  font-family: var(--font-rounded);
+  font-size: var(--text-body);
+  font-weight: var(--weight-semibold);
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
+.metric-unit,
+.metric-cur {
+  font-size: var(--text-micro);
+  font-weight: var(--weight-medium);
+  color: var(--ink-2);
+}
+
+.metric-unit {
+  margin-left: 0.1rem;
+}
+
+.metric[data-best] .metric-value {
+  color: var(--ok);
+}
+
+.metric-none {
+  font-size: var(--text-small);
+  color: var(--ink-2);
+}
+
+.best-dot {
+  display: inline-block;
+  width: 0.375rem;
+  height: 0.375rem;
+  background: var(--ok);
+  border-radius: 50%;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .button,
+  .icon-button,
+  .switch,
+  .switch::before,
+  .check,
+  .pill,
+  .tab,
+  .tab > .icon,
+  .count,
+  .segment,
+  .indicator,
+  .radio-mark,
+  .radio-mark .icon,
+  .badge[data-tone="progress"]::before {
+    transition: none;
+  }
+
+  .button:active:not(:disabled) {
+    scale: none;
+  }
+
+  .spin {
+    animation-duration: 2.4s;
+  }
+
+  .badge[data-fresh] .icon path {
+    animation: none;
+  }
+}
+
+/* Windows has no "Input Monitoring" or "Accessibility" permissions (the helper's hooks can listen for keys and paste text), so onboarding and settings don't list them */
+:root[data-platform="win32"] :is([data-permission="listen"], [data-permission="trusted"]) {
+  display: none;
+}

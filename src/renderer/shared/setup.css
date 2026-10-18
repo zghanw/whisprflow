@@ -1,0 +1,85 @@
+/* Key states, check results, and permission rows: shared by the main window's settings and onboarding (setup-text.mjs). Colors come from the theme. */
+
+.hint {
+  margin-top: 0.75rem;
+  max-width: 34rem;
+  font-size: var(--text-small);
+  color: var(--ink-2);
+}
+
+.state[data-tone="ok"],
+.granted[data-tone="ok"] {
+  color: var(--ok);
+}
+
+.state[data-tone="problem"],
+.granted[data-tone="problem"] {
+  color: var(--problem);
+}
+
+.check-result {
+  margin: 0.4rem 0 0;
+  font-size: var(--text-small);
+  font-weight: var(--weight-medium);
+  color: var(--ink-2);
+}
+
+.check-result[data-tone="ok"] {
+  color: var(--ok);
+}
+
+.check-result[data-tone="problem"] {
+  color: var(--problem);
+}
+
+.key-state-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.75rem;
+  font-size: var(--text-small);
+}
+
+.key-state-row .state {
+  font-weight: var(--weight-medium);
+}
+
+.key-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.key-form .input {
+  flex: 1 1 14rem;
+}
+
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  margin-top: 0.75rem;
+}
+
+.permissions {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.permissions li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.85rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.granted {
+  font-size: var(--text-small);
+  font-weight: var(--weight-medium);
+  color: var(--ink-2);
+  white-space: nowrap;
+}

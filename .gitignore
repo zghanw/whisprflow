@@ -1,6 +1,27 @@
+# Dependencies (restored from package-lock.json)
+node_modules/
+
+# Build output at the repo root only; scripts/build/ holds source and must stay tracked
+/build/
+/dist/
+native/windows-setup/*.syso
+
+# Project-local toolchains (the macOS build downloads a pinned Go here)
+.tools/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+
+# OS and editor files
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Leftovers from the v1 Python app, if still on disk
 .venv/
-dist/
-build/
 __pycache__/
 *.pyc
 dictionary.txt
