@@ -602,6 +602,11 @@ export default {
     source: "Source code",
   },
 
+  ollama: {
+    pullFailed: "Couldn't pull {model} into Ollama: {reason}",
+    notInUse: "Local cleanup isn't set to Ollama",
+  },
+
   dictionary: {
     explain:
       "Names and jargon spelled the way you want, one per line. Cleanup prefers these spellings, and on-device cleanup adds new ones it hears.",
@@ -657,12 +662,21 @@ export default {
       private: { soft: "Download an ", title: "on-device model" },
       route: { label: "Route", audio: "Audio", text: "Text", local: "On-device" },
       sections: { model: "On-device model", native: "Native recognition", local: "Polish" },
+      // Cleanup by Ollama on this computer (the Ollama section): no key, but it must run with the model pulled
+      ollama: {
+        ready: "Ready",
+        local: "Runs on this computer",
+        checking: "Checking Ollama",
+        get: "Get Ollama",
+        notRunning: "Ollama isn't running. Install it, or start it if it's installed, then check again",
+        pull: "Pull",
+      },
       model: {
         download: "Download",
         retry: "Retry",
         ready: "Downloaded",
         background: "Downloads in the background · you can continue",
-        sources: { cn: "China mirror", original: "Hugging Face" },
+        sources: { original: "Hugging Face", mirror: "Hugging Face mirror" },
       },
       nativeOnly: "Only these take audio directly · DeepSeek, Kimi, GLM and more are under Transcribe + Polish",
       later: "Optional · set it up later on the Models page",
@@ -714,6 +728,9 @@ export default {
       downloading: "Downloading {model} · {percent}%",
       needDownload: "{model} not downloaded ({size})",
       needKey: "{vendor} API key missing",
+      ollamaStopped: "Ollama isn't running",
+      ollamaMissing: "{model} not pulled in Ollama",
+      ollamaPulling: "Pulling {model} · {percent}%",
       preparing: "Preparing · ready shortly",
       fix: "Set up",
     },

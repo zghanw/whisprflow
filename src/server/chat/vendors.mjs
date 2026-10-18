@@ -34,7 +34,10 @@ export const CHAT_VENDORS = Object.freeze([
     protocol: "openai-chat",
     baseUrl: "http://localhost:11434/v1",
     defaultModel: "qwen3:4b-instruct",
-    models: models([{ id: "qwen3:4b-instruct", name: "Qwen3 4B Instruct", maker: "qwen", tested: true }]),
+    // bytes: the download size Ollama reports, shown before pulling
+    models: models([
+      { id: "qwen3:4b-instruct", name: "Qwen3 4B Instruct", maker: "qwen", tested: true, bytes: 2_500_000_000 },
+    ]),
     // Cleanup should be the same every time: no sampling randomness
     request: Object.freeze({ temperature: 0 }),
     // Free: the model runs locally

@@ -48,7 +48,8 @@ export function hasKey(setup, mode, id) {
 }
 
 /**
- * What this set still needs before it works: [{ kind: "download", model, downloading }, { kind: "key", vendor }, { kind: "url" }]; empty when nothing.
+ * What this set still needs before it works: [{ kind: "download", model, downloading }, { kind: "key", vendor }, { kind: "url" },
+ *   { kind: "ollama", state, model, download }]; empty when nothing.
  * Based on what the main process computed from the settings (ways in app/model-plaza.mjs: correct for cloud step one and custom services),
  * plus, for the mode in use, a stored key that failed or can't be read (the main process only checks whether one exists)
  */
@@ -61,6 +62,11 @@ export function needsOf(plan, setup) {
     }
     return need;
   });
+  // Cleanup by Ollama: no key, but it must run with the model pulled (the main process checks it on demand)
+  const ollama = setup.local.ollama;
+  if (plan.mode === "local" && plan.polish === "ollama" && ["stopped", "missing", "pulling"].includes(ollama?.state)) {
+    needs.push({ kind: "ollama", state: ollama.state, model: ollama.model, download: ollama.download ?? null });
+  }
   const vendor = setup.key.vendor?.id ?? setup.provider?.id;
   const broken = setup.key.state === "rejected" || setup.key.state === "unreadable";
   if (plan.mode === setup.mode.value && broken && vendor && !needs.some((need) => need.vendor === vendor)) {
@@ -112,7 +118,9 @@ export function readinessOf(setup) {
     return { tone: "problem", needs, problem: setup.key.problem };
   }
   if (needs.length > 0) {
-    const downloading = needs.every((need) => need.kind === "download" && need.downloading);
+    const downloading = needs.every(
+      (need) => (need.kind === "download" && need.downloading) || (need.kind === "ollama" && need.state === "pulling"),
+    );
     return { tone: downloading ? "progress" : "problem", needs };
   }
   if (setup.key.state === "checking" || setup.localModel?.state === "loading") return { tone: "progress", needs };

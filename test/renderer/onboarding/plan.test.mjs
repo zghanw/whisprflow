@@ -219,3 +219,24 @@ test("whether dictation works now: null with nothing missing; only a model downl
     problem: "The on-device model failed to load",
   });
 });
+
+test("cleanup by Ollama: not running or the model not pulled is missing; pulling is progress; ready needs nothing", () => {
+  const plan = { mode: "local", native: "gemini", polish: "ollama" };
+  const withOllama = (ollama) => {
+    const s = setup({ mode: "local", installed: [QWEN], provider: null, key: "ready" });
+    s.local.ollama = { model: "qwen3:4b-instruct", download: null, problem: null, ...ollama };
+    return s;
+  };
+  assert.deepEqual(needsOf(plan, withOllama({ state: "stopped" })), [
+    { kind: "ollama", state: "stopped", model: "qwen3:4b-instruct", download: null },
+  ]);
+  assert.equal(readinessOf(withOllama({ state: "missing" })).tone, "problem");
+  const pulling = withOllama({ state: "pulling", download: { received: 1, total: 4 } });
+  assert.deepEqual(readinessOf(pulling), {
+    tone: "progress",
+    needs: [{ kind: "ollama", state: "pulling", model: "qwen3:4b-instruct", download: { received: 1, total: 4 } }],
+  });
+  assert.equal(readinessOf(withOllama({ state: "ready" })), null);
+  // Not yet checked says nothing either way
+  assert.deepEqual(needsOf(plan, withOllama({ state: "unknown" })), []);
+});

@@ -65,6 +65,10 @@ contextBridge.exposeInMainWorld("whisprflow", {
   setAcceleration: (id) => ipcRenderer.invoke("setup:set-acceleration", id),
   // On-device models: downloaded only when the user asks; cancel, delete (the one in use can't be deleted)
   downloadModel: (id) => ipcRenderer.invoke("setup:download-model", id),
+  // Ollama for on-device cleanup: check it runs with the model, pull the model (progress arrives with the setup state), open its download page
+  checkOllama: () => ipcRenderer.invoke("ollama:check"),
+  pullOllamaModel: () => ipcRenderer.invoke("ollama:pull"),
+  getOllama: () => ipcRenderer.invoke("ollama:get-it"),
   cancelDownload: (id) => ipcRenderer.invoke("setup:cancel-download", id),
   deleteModel: (id) => ipcRenderer.invoke("setup:delete-model", id),
   // Checking an on-device model: transcribe one spoken sentence to see that it produces text

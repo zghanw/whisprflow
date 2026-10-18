@@ -427,6 +427,16 @@ body {
   height: var(--control-md);
 }
 
+/* Ollama not running: get it, or check again, side by side, so this cell grows */
+.model-action:has(.ollama-actions) {
+  width: auto;
+}
+
+.ollama-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
 /* Provider choice: one per row, the selected row expands to enter a key */
 .vendor-list {
   background: var(--surface);

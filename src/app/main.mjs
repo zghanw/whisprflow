@@ -21,7 +21,7 @@ import { alsoLogTo, log } from "../log.mjs";
 import { chipOf, downloadSize, MODELS, makerOf, measuredOn, SOURCES, tagsOn } from "../models/catalog.mjs";
 import { createLocalModels, freeBytesAt } from "../models/library.mjs";
 import { presetsFor } from "../models/presets.mjs";
-import { CHAT_VENDORS, formatChatChoice } from "../server/chat/vendors.mjs";
+import { CHAT_VENDORS, findChatVendor, formatChatChoice, parseChatChoice } from "../server/chat/vendors.mjs";
 import { describeRoute, keyVendorOf, MODES } from "../server/modes.mjs";
 import { formatModelChoice, PROVIDERS } from "../server/providers/index.mjs";
 import { findVendor, VENDORS } from "../server/vendors.mjs";
@@ -50,6 +50,7 @@ import { createKeyManager } from "./keys/key-manager.mjs";
 import { createKeyStore } from "./keys/key-store.mjs";
 import { describePlaza, loadPriceBook } from "./model-plaza.mjs";
 import { createModeSwitch } from "./modes.mjs";
+import { ollamaStatus, pullModel } from "./ollama.mjs";
 import { startService } from "./service.mjs";
 import { summarizeSetup, summaryAsText } from "./setup-state.mjs";
 
@@ -738,9 +739,73 @@ async function main() {
         polish: settings.polish.value,
         customUrl: settings.customUrl.value,
         vendors: CHAT_VENDORS.map(describeVendor),
+        // Ollama's state for the cleanup model, when local cleanup is Ollama (refreshOllama)
+        ollama,
       },
     };
   }
+
+  // ---------- Ollama: cleanup on this computer ----------
+
+  /**
+   * Ollama as the setup screens see it, for the model local cleanup uses: unknown (not checked yet, or local cleanup isn't Ollama) / stopped (not running) /
+   * missing (the model isn't pulled) / pulling (download carries progress) / ready. problem is why the last pull failed.
+   * Checked on demand (setup screens ask, after a pull), never polled
+   */
+  let ollama = { state: "unknown", model: null, download: null, problem: null };
+  const OLLAMA = findChatVendor("ollama");
+  /** The Ollama model the settings' local cleanup uses; null when local cleanup is another service */
+  function ollamaModel() {
+    const choice = parseChatChoice(resolveSettings({ file: PATHS.settingsFile, env: process.env }).polish.value);
+    return choice.vendor === OLLAMA.id ? choice.model : null;
+  }
+  async function refreshOllama() {
+    const model = ollamaModel();
+    if (model === null) ollama = { state: "unknown", model: null, download: null, problem: null };
+    else if (!(ollama.state === "pulling" && ollama.model === model)) {
+      const { running, pulled } = await ollamaStatus({ baseUrl: OLLAMA.baseUrl, model });
+      const problem = ollama.model === model && !pulled ? ollama.problem : null;
+      ollama = { state: !running ? "stopped" : pulled ? "ready" : "missing", model, download: null, problem };
+    }
+    setupChanged();
+    return ollama;
+  }
+  /** Pulls the model local cleanup uses into Ollama, in the background; progress shows in the setup state. Once pulled, cleanup is checked again */
+  function pullOllama() {
+    const model = ollamaModel();
+    if (model === null) return { ok: false, problem: msg("ollama.notInUse") };
+    if (ollama.state === "pulling") return { ok: true };
+    ollama = { state: "pulling", model, download: { received: 0, total: 0 }, problem: null };
+    setupChanged();
+    let toldAt = 0;
+    pullModel({
+      baseUrl: OLLAMA.baseUrl,
+      model,
+      onProgress: (download) => {
+        ollama = { ...ollama, download };
+        // A pull reports many times a second: tell the windows at most twice a second
+        if (Date.now() - toldAt < 500) return;
+        toldAt = Date.now();
+        setupChanged();
+      },
+    }).then(
+      () => {
+        log.info("ollama_pulled", { model });
+        ollama = { state: "ready", model, download: null, problem: null };
+        setupChanged();
+        reverifyKeyInBackground();
+      },
+      async (error) => {
+        log.warn("ollama_pull_failed", { model, error: String(error?.message ?? error) });
+        ollama = { state: "missing", model, download: null, problem: problemOf(error) };
+        await refreshOllama();
+      },
+    );
+    return { ok: true };
+  }
+  handle("ollama:check", () => refreshOllama());
+  handle("ollama:pull", () => pullOllama());
+  handle("ollama:get-it", () => shell.openExternal("https://ollama.com/download"));
 
   /** These belong to the mode layer; unavailable when connected to a separately started server */
   const viaModes = (action) => (modes ? action(modes) : { ok: false, problem: msg("key.externalModel") });
@@ -1206,6 +1271,8 @@ async function main() {
   // ---------- Startup checks ----------
 
   const keyLoaded = keys.loadAtStartup();
+  // Whether Ollama runs and has the cleanup model: the setup screens show it, and onboarding offers to pull the model
+  refreshOllama().catch((error) => log.warn("ollama_check_failed", { error: String(error?.message ?? error) }));
   if (e2e) {
     const loaded = await keyLoaded;
     if (loaded.state !== "ready")

@@ -81,6 +81,8 @@ const leave = {
 };
 /** What to do when entering a step */
 const enter = {
+  // Whether Ollama runs with the cleanup model: checked on demand, the answer arrives with the setup state
+  prepare: () => window.whisprflow.checkOllama().catch(() => {}),
   microphone: () => startMeter(),
   // During the shortcut test the hotkey doesn't open the floating bar, it only comes here
   hotkey: () => window.whisprflow.captureHotkey(true),
@@ -313,6 +315,97 @@ function modelSection() {
   );
 }
 
+/** Cleanup by Ollama on this computer: no key, but it must run with the model pulled. Offers to pull the model, or to get Ollama */
+function ollamaSection() {
+  const status = setup.local.ollama ?? { state: "unknown", model: null, download: null, problem: null };
+  const vendor = setup.local.vendors.find(({ id }) => id === "ollama");
+  const model = status.model ?? vendor?.defaultModel;
+  const bytes = vendor?.models.find(({ id }) => id === model)?.bytes;
+  const recheck = async () => {
+    await window.whisprflow.checkOllama();
+    await refresh();
+  };
+  let action;
+  if (status.state === "ready") {
+    action = h(
+      "span",
+      { class: "state-box", "data-tone": "accent" },
+      svg("i-check"),
+      t("onboarding.prepare.ollama.ready"),
+    );
+  } else if (status.state === "pulling") {
+    action = progressBadge(status.download);
+  } else if (status.state === "missing") {
+    action = h(
+      "button",
+      {
+        type: "button",
+        class: "button",
+        onclick: async (event) => {
+          event.currentTarget.disabled = true;
+          await window.whisprflow.pullOllamaModel();
+          await refresh();
+        },
+      },
+      svg("i-download"),
+      t(status.problem ? "onboarding.prepare.model.retry" : "onboarding.prepare.ollama.pull"),
+    );
+  } else if (status.state === "stopped") {
+    action = h(
+      "span",
+      { class: "ollama-actions" },
+      h("button", {
+        type: "button",
+        class: "button",
+        text: t("onboarding.prepare.ollama.get"),
+        onclick: () => window.whisprflow.getOllama(),
+      }),
+      h("button", { type: "button", class: "button ghost", text: t("preferences.recheck"), onclick: recheck }),
+    );
+  } else {
+    action = h(
+      "span",
+      { class: "state-box" },
+      svg("i-loader-circle", "icon spin"),
+      t("onboarding.prepare.ollama.checking"),
+    );
+  }
+  const local = t("onboarding.prepare.ollama.local");
+  return h(
+    "section",
+    { class: "prepare-section ollama-section" },
+    h("h2", { class: "section-label", text: t("onboarding.prepare.sections.local") }),
+    h(
+      "div",
+      { class: "model-row" },
+      tile("ollama"),
+      h(
+        "span",
+        { class: "model-text" },
+        h(
+          "span",
+          { class: "model-name" },
+          h("span", { text: "Ollama" }),
+          h("span", { class: "tag", "data-tone": "outline", text: model }),
+        ),
+        h("span", {
+          class: "model-meta",
+          text: bytes && status.state !== "ready" ? `${sizeText(bytes)} · ${local}` : local,
+        }),
+      ),
+      h("span", { class: "model-action" }, action),
+    ),
+    status.problem &&
+      h(
+        "p",
+        { class: "callout", role: "alert" },
+        svg("i-circle-alert"),
+        h("span", {}, h("b", { text: t("plaza.actionFailed") }), ` · ${t.text(status.problem)}`),
+      ),
+    status.state === "stopped" && h("p", { class: "section-hint", text: t("onboarding.prepare.ollama.notRunning") }),
+  );
+}
+
 /** The provider and key panel: stays the same node within one mode (moving it would lose input focus), replaced only when the mode changes */
 function keySection() {
   const mode = plan.mode;
@@ -356,7 +449,9 @@ function renderPrepare() {
   renderStatus();
   // When step one is in the cloud there's no on-device model to download
   const model = plan.mode === "native" || cloudFirstHop() ? null : modelSection();
-  const key = plan.mode === "private" ? null : keySection();
+  // Cleanup by Ollama needs no key: its section shows whether it runs with the model instead
+  const key =
+    plan.mode === "private" ? null : plan.mode === "local" && plan.polish === "ollama" ? ollamaSection() : keySection();
   const host = $("prepare-sections");
   // If the key panel is already on the page, don't move it (moving loses input focus); only replace the on-device model panel
   if (key && key.parentNode === host) {
@@ -384,6 +479,12 @@ function readiness() {
   const needText = (need) => {
     if (need.kind === "url") return t("home.mode.needs.url");
     if (need.kind === "key") return t("onboarding.try.needKey", { vendor: t(`providers.${need.vendor}.name`) });
+    if (need.kind === "ollama") {
+      if (need.state === "stopped") return t("onboarding.try.ollamaStopped");
+      if (need.state === "missing") return t("onboarding.try.ollamaMissing", { model: need.model });
+      const percent = Math.round((need.download.received / (need.download.total || 1)) * 100);
+      return t("onboarding.try.ollamaPulling", { model: need.model, percent });
+    }
     const model = transcriber(need.model);
     const name = nameParts(model.name)[0];
     if (!model.download) return t("onboarding.try.needDownload", { model: name, size: sizeText(model.bytes) });
