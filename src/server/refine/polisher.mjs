@@ -1,9 +1,10 @@
 import { LocalizedError, msg } from "../../i18n/index.mjs";
 import { chatEndpoint, findChatVendor, PROTOCOLS, requestFor } from "../chat/vendors.mjs";
 import { toModelError } from "../providers/errors.mjs";
+import { createLearner } from "./learner.mjs";
 import { createMeter } from "./meter.mjs";
 import { textFromModelOutput } from "./output.mjs";
-import { POLISH_PROMPT, polishInput } from "./polish-prompt.mjs";
+import { polishInput, polishPrompt } from "./polish-prompt.mjs";
 
 // Cleanup: the on-device transcript in, the finished text out. Step two of the local transcription path; the user picks which text model does it (chat/vendors.mjs).
 // A sibling of the native path's refiner.mjs: billing (meter.mjs) and finishing (output.mjs) are shared, each has its own prompt.
@@ -21,7 +22,9 @@ const PRIME_TIMEOUT_MS = 300_000;
  * @param {(error: unknown, detail: string) => object | null} [options.classify] how this protocol's errors are recognized
  * @param {string} [options.apiKey] only used to scrub it from error text
  * @param {(record: object) => void} [options.onCall] billing, see meter.mjs
- * @param {string} [options.prompt] the system prompt; replaceable to try out a candidate prompt
+ * @param {(terms: string[]) => string} [options.prompt] builds the system prompt from the dictionary's terms; replaceable to try out a candidate prompt
+ * @param {{ terms(): string[], learn(terms: string[]): string[] } | null} [options.dictionary] the user's dictionary (storage/dictionary.mjs):
+ *   its terms go in the prompt as preferred spellings, and on-device cleanup learns new ones after each dictation
  * @param {string | null} [options.localModel] set when the service runs on this computer (Ollama): the model it should have.
  *   Warming up then checks the service is running with that model, and loads it with one real cleanup in the background
  * @returns {{ warmUp(): Promise<void>, polish(transcript: string, o: { signal?: AbortSignal, audioId?: string }): Promise<string> }}
@@ -35,8 +38,9 @@ export function createPolisher({
   timeoutMs = DEFAULT_TIMEOUT_MS,
   log,
   onCall = () => {},
-  prompt = POLISH_PROMPT,
+  prompt = polishPrompt,
   localModel = null,
+  dictionary = null,
 }) {
   const described = (error) => toModelError(error, { provider: endpoint, apiKey, classify });
   const metered = createMeter({ provider: endpoint, log, onCall });
@@ -44,6 +48,9 @@ export function createPolisher({
     const timeout = AbortSignal.timeout(timeoutMs);
     return signal ? AbortSignal.any([signal, timeout]) : timeout;
   };
+  const system = () => prompt(dictionary?.terms() ?? []);
+  // Learning asks the model a second question per dictation: only on this computer, where it costs nothing and the text stays here
+  const learn = localModel && dictionary ? createLearner({ client, dictionary, log }) : null;
 
   /**
    * An on-device service: listing its models shows whether it runs and has the model, without loading it. Then one real cleanup runs in the background,
@@ -65,7 +72,7 @@ export function createPolisher({
     }
     const startedAt = performance.now();
     client
-      .complete({ system: prompt, user: polishInput("warm up"), signal: AbortSignal.timeout(PRIME_TIMEOUT_MS) })
+      .complete({ system: system(), user: polishInput("warm up"), signal: AbortSignal.timeout(PRIME_TIMEOUT_MS) })
       .then(
         () => log.info("cleanup_primed", { provider: endpoint.id, ms: Math.round(performance.now() - startedAt) }),
         (error) => log.warn("cleanup_prime_failed", { provider: endpoint.id, error: String(error?.message ?? error) }),
@@ -92,10 +99,13 @@ export function createPolisher({
       if (transcript.trim() === "") return "";
       try {
         const reply = await metered("dictation", audioId, () =>
-          client.complete({ system: prompt, user: polishInput(transcript), signal: withTimeout(signal) }),
+          client.complete({ system: system(), user: polishInput(transcript), signal: withTimeout(signal) }),
         );
         if (reply.problem) throw new LocalizedError(reply.problem);
-        return textFromModelOutput(reply.text);
+        const text = textFromModelOutput(reply.text);
+        // In the background: the text is delivered without waiting for it
+        if (learn && text) learn(text);
+        return text;
       } catch (error) {
         throw described(error);
       }
@@ -112,7 +122,17 @@ export function createPolisher({
  * @param {typeof fetch} [options.fetch] replaced by a fake in tests
  * @param {string} [options.prompt] see createPolisher
  */
-export async function createChatPolisher({ choice, customUrl = null, apiKey, timeoutMs, log, onCall, fetch, prompt }) {
+export async function createChatPolisher({
+  choice,
+  customUrl = null,
+  apiKey,
+  timeoutMs,
+  log,
+  onCall,
+  fetch,
+  prompt,
+  dictionary = null,
+}) {
   const vendor = findChatVendor(choice.vendor);
   if (!vendor) throw new LocalizedError(msg("key.unknownProvider", { id: choice.vendor }));
   const { baseUrl, name } = chatEndpoint(vendor, { customUrl });
@@ -137,7 +157,8 @@ export async function createChatPolisher({ choice, customUrl = null, apiKey, tim
     timeoutMs,
     log,
     onCall,
-    prompt,
+    ...(prompt ? { prompt } : {}),
     localModel: local ? choice.model : null,
+    dictionary,
   });
 }

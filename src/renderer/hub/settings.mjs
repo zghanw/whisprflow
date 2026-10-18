@@ -2,14 +2,14 @@ import { LOCALES, SYSTEM_LOCALE } from "../../i18n/index.mjs";
 import { t } from "../shared/i18n.mjs";
 import { describeError, keyMissing, permissionDenied, permissionText } from "../shared/setup-text.mjs";
 
-// The settings dialog, with a menu down the left. Three pages: General (hotkey, theme, language, on-device model download source, launch at login),
-// Permissions, and About.
+// The settings dialog, with a menu down the left. Four pages: General (hotkey, theme, language, on-device model download source, launch at login),
+// Dictionary (preferred spellings), Permissions, and About.
 // Recognition mode, models, and keys aren't here: they are on the sidebar's "Models" page (models.mjs).
 // All state lives in the main process; this only draws it and relays the user's actions.
 
 const $ = (id) => document.getElementById(id);
 
-const PANES = ["general", "permissions", "about"];
+const PANES = ["general", "dictionary", "permissions", "about"];
 
 /**
  * Where to fill in what is missing: keys in the key table on the sidebar's "Models" page, everything else on the settings' Permissions page (a stopped helper too; rechecking is there);
@@ -29,6 +29,8 @@ export function createSettings({ refresh }) {
 
   function showPane(pane) {
     const name = PANES.includes(pane) ? pane : "general";
+    // Read it fresh each time: cleanup may have learned terms since, or the file was edited by hand
+    if (name === "dictionary") loadDictionary();
     for (const section of dialog.querySelectorAll(".pane")) section.hidden = section.dataset.pane !== name;
     for (const item of dialog.querySelectorAll(".menu-item")) {
       if (item.dataset.pane === name) item.setAttribute("aria-current", "true");
@@ -165,6 +167,36 @@ export function createSettings({ refresh }) {
       showNote("general-problem", t("preferences.loginFailed", { reason: describeError(error) }), "problem");
     }
     await refresh();
+  });
+
+  // ---------- Dictionary ----------
+
+  const terms = $("dictionary-terms");
+  const linesOf = (text) => text.split("\n");
+
+  function showDictionary({ terms: list, max }, note = null) {
+    terms.value = list.join("\n");
+    const count = t("dictionary.count", { count: list.length });
+    const status = list.length >= max ? t("dictionary.learningPaused", { count: list.length, max }) : count;
+    showNote("dictionary-status", note ? `${note} · ${status}` : status);
+  }
+
+  async function loadDictionary() {
+    try {
+      showDictionary(await window.whisprflow.getDictionary());
+    } catch (error) {
+      showNote("dictionary-status", t("dictionary.saveFailed", { reason: describeError(error) }), "problem");
+    }
+  }
+
+  $("dictionary-save").addEventListener("click", async () => {
+    try {
+      const saved = await window.whisprflow.setDictionary(linesOf(terms.value));
+      const { max } = await window.whisprflow.getDictionary();
+      showDictionary({ terms: saved, max }, t("dictionary.saved"));
+    } catch (error) {
+      showNote("dictionary-status", t("dictionary.saveFailed", { reason: describeError(error) }), "problem");
+    }
   });
 
   // ---------- Permissions ----------

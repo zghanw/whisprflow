@@ -855,6 +855,29 @@ code.setting-value {
   color: var(--problem);
 }
 
+/* The dictionary editor: one term per line, as tall as the pane allows */
+.dictionary-terms {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-top: 1rem;
+  padding: 0.6rem 0.7rem;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.dictionary-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.75rem;
+}
+
+.dictionary-actions .setting-note {
+  margin: 0;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .nav-item,
   .menu-item,

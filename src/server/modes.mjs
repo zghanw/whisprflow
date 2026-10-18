@@ -38,13 +38,14 @@ export const MODES = Object.freeze([
     /** Whose keys it needs, the main vendor last */
     keyVendors: (route) => [findProvider(route.model.provider)],
     describe: (route) => formatModelChoice(route.model),
-    create: ({ route, keys, log, onCall }) =>
+    create: ({ route, keys, log, onCall, dictionary }) =>
       createModelRefiner({
         choice: route.model,
         apiKey: keys[route.model.provider],
         thinkingLevel: route.thinkingLevel,
         log,
         onCall,
+        dictionary,
       }),
   }),
   Object.freeze({
@@ -57,7 +58,7 @@ export const MODES = Object.freeze([
       return vendors.filter((vendor) => vendor.keyEnv !== null);
     },
     describe: (route) => `${route.transcriber} → ${formatChatChoice(route.polish)}`,
-    async create({ route, keys, transcriber, log, onCall, decode, fetch }) {
+    async create({ route, keys, transcriber, log, onCall, decode, fetch, dictionary }) {
       const cloud = cloudTranscriberOf(route.transcriber);
       if (!cloud && !transcriber)
         throw new Error(`The local path needs its transcriber loaded first (${route.transcriber})`);
@@ -71,6 +72,7 @@ export const MODES = Object.freeze([
         log,
         onCall,
         fetch,
+        dictionary,
       });
       const refiner = createLocalRefiner({
         transcriber: firstHop,

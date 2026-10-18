@@ -33,6 +33,7 @@ test("the program, your things, and runtime files each have their place", () => 
     runtimeDir: "runtime",
     // Your things
     settingsFile: "settings.json",
+    dictionaryFile: "dictionary.txt",
     historyDb: "data/history.db",
     recordingsDir: "data/Recordings",
     // On-device models, downloaded when needed

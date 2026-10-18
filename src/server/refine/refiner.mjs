@@ -4,7 +4,7 @@ import { toModelError } from "../providers/errors.mjs";
 import { findProvider } from "../providers/index.mjs";
 import { createMeter } from "./meter.mjs";
 import { textFromModelOutput } from "./output.mjs";
-import { SYSTEM_PROMPT, TASK_REMINDER } from "./prompt.mjs";
+import { systemPrompt, TASK_REMINDER } from "./prompt.mjs";
 
 // The native path: the recording goes straight to an audio model, one request returns the finished text.
 
@@ -29,6 +29,7 @@ const DEFAULT_TIMEOUT_MS = 30_000;
  * @param {string} [options.apiKey] only used to scrub it from error text
  * @param {(audio: Buffer, mimeType: string) => Promise<{ audio: Buffer, mimeType: string }>} [options.transcode]
  * @param {(record: object) => void} [options.onCall] billing, see meter.mjs
+ * @param {{ terms(): string[] } | null} [options.dictionary] the user's dictionary: its terms go in the prompt as preferred spellings
  * @returns {{ warmUp(): Promise<void>, prepare(): Promise<void>, refine(audio: Buffer, o: { mimeType: string, signal?: AbortSignal, audioId?: string }): Promise<string> }}
  *   every error thrown is a ModelError
  */
@@ -42,6 +43,7 @@ export function createRefiner({
   log,
   transcode = toWav,
   onCall = () => {},
+  dictionary = null,
 }) {
   const described = (error) => toModelError(error, { provider, apiKey, classify });
   const withTimeout = (signal) => {
@@ -50,6 +52,7 @@ export function createRefiner({
   };
 
   const metered = createMeter({ provider, log, onCall });
+  const system = () => systemPrompt(dictionary?.terms() ?? []);
 
   return {
     /**
@@ -72,7 +75,7 @@ export function createRefiner({
     async prepare() {
       if (!client.prepare) return;
       try {
-        await metered("cache", null, () => client.prepare({ systemPrompt: SYSTEM_PROMPT }));
+        await metered("cache", null, () => client.prepare({ systemPrompt: system() }));
       } catch (error) {
         log.warn("prompt_cache_failed", { provider: provider.id, error: described(error).detail.slice(0, 300) });
       }
@@ -92,7 +95,7 @@ export function createRefiner({
           const reply = await metered("dictation", audioId, () =>
             client.generate({
               ...input,
-              systemPrompt: SYSTEM_PROMPT,
+              systemPrompt: system(),
               reminder: TASK_REMINDER,
               signal: withTimeout(signal),
             }),
@@ -125,7 +128,7 @@ async function timed(log, transcode) {
  * @param {string} [options.thinkingLevel] only Gemini uses it
  * @param {(record: object) => void} [options.onCall] billing, see createRefiner
  */
-export async function createModelRefiner({ choice, apiKey, thinkingLevel, timeoutMs, log, onCall }) {
+export async function createModelRefiner({ choice, apiKey, thinkingLevel, timeoutMs, log, onCall, dictionary = null }) {
   const provider = findProvider(choice.provider);
   if (!provider) throw new LocalizedError(msg("key.unknownProvider", { id: choice.provider }));
   const adapter = await provider.load();
@@ -138,6 +141,7 @@ export async function createModelRefiner({ choice, apiKey, thinkingLevel, timeou
     timeoutMs,
     log,
     onCall,
+    dictionary,
   });
 }
 

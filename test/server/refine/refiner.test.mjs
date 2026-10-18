@@ -350,3 +350,10 @@ test("prepare: a failure only logs a warning, never throws, and never includes t
   assert.equal(failed.level, "warn");
   assert.doesNotMatch(JSON.stringify(failed), /sk-secret/);
 });
+
+test("the native path also prefers the dictionary's spellings (no learning: that needs a text model on this computer)", async () => {
+  const client = fakeClient(["We deploy with Kubernetes."]);
+  const { refiner } = refinerWith(client, { audioTypes: ["audio/webm"], dictionary: { terms: () => ["Kubernetes"] } });
+  await refiner.refine(Buffer.from("rec"), { mimeType: "audio/webm" });
+  assert.match(client.calls[0].systemPrompt, /Prefer these spellings for names and jargon: Kubernetes\./);
+});

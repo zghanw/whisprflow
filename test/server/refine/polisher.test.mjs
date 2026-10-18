@@ -215,3 +215,49 @@ test("on-device warm-up: a model not pulled yet, or the service not running, is 
   assert.equal(down.kind, "unavailable");
   assert.equal(en.text(down.problem), "Ollama isn't running. Start it, or install it from ollama.com");
 });
+
+test("the dictionary's terms go in the prompt as preferred spellings, read fresh for each dictation", async () => {
+  const terms = ["Kubernetes"];
+  const dictionary = { terms: () => [...terms], learn: () => [] };
+  const { client, requests } = fakeClient(
+    { text: "We use Kubernetes.", problem: null, usage: USAGE },
+    { text: "We use WhisprFlow.", problem: null, usage: USAGE },
+  );
+  const polisher = polisherWith(client, { dictionary });
+  await polisher.polish("we use kubernetes", {});
+  assert.match(requests[0].system, /Prefer these spellings for names and jargon: Kubernetes\./);
+  terms.push("WhisprFlow");
+  await polisher.polish("we use whisper flow", {});
+  assert.match(requests[1].system, /Prefer these spellings for names and jargon: Kubernetes, WhisprFlow\./);
+});
+
+test("on-device cleanup learns from the finished text in the background; a cloud service never does", async () => {
+  const learned = [];
+  const dictionary = {
+    terms: () => [],
+    learn(terms) {
+      learned.push(...terms);
+      return terms;
+    },
+  };
+  const replies = [
+    { text: "We moved to Kubernetes last week.", problem: null, usage: USAGE },
+    { text: "Kubernetes", problem: null, usage: USAGE },
+  ];
+  const client = { complete: async () => replies.shift() };
+  const local = createPolisher({
+    endpoint: { id: "ollama", name: "Ollama", local: true },
+    client,
+    log: quiet,
+    localModel: "qwen3:4b-instruct",
+    dictionary,
+  });
+  assert.equal(await local.polish("we moved to kubernetes last week", {}), "We moved to Kubernetes last week.");
+  for (let i = 0; i < 5 && learned.length === 0; i++) await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(learned, ["Kubernetes"]);
+
+  const cloud = fakeClient({ text: "We moved to Kubernetes last week.", problem: null, usage: USAGE });
+  await polisherWith(cloud.client, { dictionary }).polish("we moved to kubernetes last week", {});
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(cloud.requests.length, 1, "no second request to learn");
+});

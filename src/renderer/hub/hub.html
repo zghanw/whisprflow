@@ -28,6 +28,10 @@
         />
         <circle cx="12" cy="12" r="3" />
       </symbol>
+      <symbol id="i-book" viewBox="0 0 24 24">
+        <path d="M12 7v14" />
+        <path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z" />
+      </symbol>
       <symbol id="i-sliders" viewBox="0 0 24 24">
         <path d="M10 5H3m9 14H3M14 3v4m2 10v4m5-9h-9m9 7h-5m5-14h-7m-6 5v4m0-2H3" />
       </symbol>
@@ -300,6 +304,9 @@
         <button type="button" class="menu-item" data-pane="general">
           <svg class="icon" aria-hidden="true"><use href="#i-sliders" /></svg><span data-i18n="preferences.general">General</span>
         </button>
+        <button type="button" class="menu-item" data-pane="dictionary">
+          <svg class="icon" aria-hidden="true"><use href="#i-book" /></svg><span data-i18n="preferences.dictionary">Dictionary</span>
+        </button>
         <button type="button" class="menu-item" data-pane="permissions">
           <svg class="icon" aria-hidden="true"><use href="#i-shield" /></svg><span data-i18n="preferences.permissions">Permissions</span><span class="menu-dot" data-for="permissions" hidden></span>
         </button>
@@ -353,6 +360,17 @@
             <input type="checkbox" class="switch" id="open-at-login" />
           </div>
           <p class="setting-note" id="general-problem" role="alert" hidden></p>
+        </section>
+
+        <!-- The user's dictionary: preferred spellings, one per line; on-device cleanup adds what it learns (storage/dictionary.mjs) -->
+        <section class="pane" data-pane="dictionary" hidden>
+          <h3 class="pane-title" data-i18n="preferences.dictionary">Dictionary</h3>
+          <p class="setting-note" data-i18n="dictionary.explain">Names and jargon spelled the way you want, one per line. Cleanup prefers these spellings, and on-device cleanup adds new ones it hears.</p>
+          <textarea class="input dictionary-terms" id="dictionary-terms" rows="12" spellcheck="false" data-i18n-aria-label="preferences.dictionary"></textarea>
+          <div class="dictionary-actions">
+            <p class="setting-note" id="dictionary-status" role="status"></p>
+            <button type="button" class="button primary" id="dictionary-save" data-i18n="dictionary.save">Save</button>
+          </div>
         </section>
 
         <section class="pane" data-pane="permissions" hidden>

@@ -23,6 +23,8 @@ import { startServer, WS_PATH } from "../server/server.mjs";
  *   see ../server/refine/meter.mjs
  * @param {() => void} [options.onLocalModel] the local model's state changed (missing, loading, ready, failed)
  * @param {"auto" | "cpu"} [options.acceleration] whether the local model uses the GPU (the acceleration setting); call setAcceleration on change
+ * @param {{ terms(): string[], learn(terms: string[]): string[] } | null} [options.dictionary] the user's dictionary (storage/dictionary.mjs):
+ *   preferred spellings for cleanup, learned into after on-device cleanup
  * @param {typeof createModeRefiner} [options.createRefiner] a fake in tests
  * @param {typeof startTranscriber} [options.startLocal] a fake in tests
  */
@@ -34,6 +36,7 @@ export async function startService({
   onModelCall,
   onLocalModel = () => {},
   acceleration: initialAcceleration = "auto",
+  dictionary = null,
   createRefiner = createModeRefiner,
   startLocal = startTranscriber,
 }) {
@@ -137,7 +140,7 @@ export async function startService({
   };
 
   const build = (nextRoute, apiKey, keys) =>
-    createRefiner({ route: nextRoute, apiKey, keys, transcriber, log, onCall: onModelCall });
+    createRefiner({ route: nextRoute, apiKey, keys, transcriber, log, onCall: onModelCall, dictionary });
 
   followRoute();
 

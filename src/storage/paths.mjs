@@ -10,7 +10,7 @@ import { restrictToOwner } from "./owner-only.mjs";
 //
 //   ~/.whisprflow/
 //     bin/ app/ runtime/           the program itself: put in at install, replaced whole on update
-//     settings.json <vendor>-key.bin data/    your things (one key per model vendor: gemini-key.bin, openai-key.bin)
+//     settings.json dictionary.txt <vendor>-key.bin data/    your things (one key per model vendor: gemini-key.bin, openai-key.bin)
 //     models/                      on-device transcription models: downloaded when needed, downloaded again if deleted
 //     logs/ run/ cache/            produced while running, recreated if deleted
 //
@@ -62,6 +62,8 @@ export function resolvePaths(env = process.env, userHome = homedir(), platform =
     runtimeDir: join(home, "runtime"),
 
     settingsFile: join(home, "settings.json"),
+    /** The user's dictionary: preferred spellings, one term per line (storage/dictionary.mjs) */
+    dictionaryFile: join(home, "dictionary.txt"),
     historyDb: join(home, "data", "history.db"),
     recordingsDir: join(home, "data", "Recordings"),
     /** On-device transcription models, one directory per model (models/store.mjs) */

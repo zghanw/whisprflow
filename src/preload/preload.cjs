@@ -47,6 +47,9 @@ contextBridge.exposeInMainWorld("whisprflow", {
 
   // Main window: Settings
   getSetup: () => ipcRenderer.invoke("setup:get"),
+  // The user's dictionary: preferred spellings, also learned into after on-device cleanup
+  getDictionary: () => ipcRenderer.invoke("dictionary:get"),
+  setDictionary: (terms) => ipcRenderer.invoke("dictionary:set", terms),
   onSetupChanged: (callback) => ipcRenderer.on("setup:changed", () => callback()),
   // Without provider it is the one in use; when saving for another provider, changes are the settings to switch to along with it, used for the check
   saveKey: (key, provider, changes) => ipcRenderer.invoke("setup:save-key", key, provider, changes),

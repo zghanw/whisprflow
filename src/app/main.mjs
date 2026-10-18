@@ -25,6 +25,7 @@ import { CHAT_VENDORS, formatChatChoice } from "../server/chat/vendors.mjs";
 import { describeRoute, keyVendorOf, MODES } from "../server/modes.mjs";
 import { formatModelChoice, PROVIDERS } from "../server/providers/index.mjs";
 import { findVendor, VENDORS } from "../server/vendors.mjs";
+import { MAX_LEARNED_TERMS, openDictionary } from "../storage/dictionary.mjs";
 import { openHistory } from "../storage/history.mjs";
 import { ensureHome, installedHomeOf, keyFile, resolvePaths } from "../storage/paths.mjs";
 import {
@@ -212,6 +213,7 @@ async function main() {
 
   const startedAt = new Date().toISOString();
   const history = openHistory(PATHS.historyDb);
+  const dictionary = openDictionary(PATHS.dictionaryFile);
   // Prices on the model page and preset monthly costs: each vendor's price module loads once at startup
   const prices = await loadPriceBook();
   // One key per vendor, one file each. Vendors besides the one in use are needed too: whisprflow key openai and model check use them
@@ -245,6 +247,7 @@ async function main() {
         },
         onLocalModel: () => localModelChanged(),
         acceleration,
+        dictionary,
       });
   const serverUrl = EXTERNAL_SERVER_URL ?? service.url;
   const e2e = process.env.WHISPRFLOW_E2E_OUT ? await import("./e2e.mjs") : null;
@@ -592,6 +595,11 @@ async function main() {
     e2e?.onFinished({ failed: payload.error });
   });
   handle("history:list", () => history.list());
+  handle("dictionary:get", () => ({ terms: dictionary.terms(), max: MAX_LEARNED_TERMS }));
+  handle("dictionary:set", (_event, terms) => {
+    if (!Array.isArray(terms)) throw new Error("dictionary:set takes a list of terms");
+    return dictionary.replace(terms);
+  });
   handle("usage:report", () => usageReport(history, { now: new Date() }));
   handle("insights:get", () => insights(history.dictations(), { now: new Date() }));
   handle("app:info", () => ({ version: app.getVersion(), hotkey }));

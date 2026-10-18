@@ -579,6 +579,7 @@ export default {
     sections: "Settings sections",
     general: "General",
     permissions: "Permissions",
+    dictionary: "Dictionary",
     about: "About",
     hotkey: "Shortcut",
     theme: "Theme",
@@ -598,6 +599,16 @@ export default {
     version: "Version",
     dataFolder: "Data folder",
     source: "Source code",
+  },
+
+  dictionary: {
+    explain:
+      "Names and jargon spelled the way you want, one per line. Cleanup prefers these spellings, and on-device cleanup adds new ones it hears.",
+    save: "Save",
+    count: { one: "{count} term", other: "{count} terms" },
+    learningPaused: "{count} terms: learning has paused at {max}. Remove some to let it learn again",
+    saved: "Saved",
+    saveFailed: "Not saved: {reason}",
   },
 
   keyPanel: {
