@@ -766,6 +766,8 @@ async function main() {
       const { running, pulled } = await ollamaStatus({ baseUrl: OLLAMA.baseUrl, model });
       const problem = ollama.model === model && !pulled ? ollama.problem : null;
       ollama = { state: !running ? "stopped" : pulled ? "ready" : "missing", model, download: null, problem };
+      // Ollama works now: if cleanup was off because of it, check again so the note clears
+      if (ollama.state === "ready") reverifyKeyInBackground();
     }
     setupChanged();
     return ollama;

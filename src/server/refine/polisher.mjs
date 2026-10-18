@@ -138,7 +138,10 @@ export async function createChatPolisher({
   if (!vendor) throw new LocalizedError(msg("key.unknownProvider", { id: choice.vendor }));
   const { baseUrl, name } = chatEndpoint(vendor, { customUrl });
   const protocol = await PROTOCOLS[vendor.protocol].load();
-  const costOf = vendor.prices ? (await vendor.prices()).costOf : null;
+  // Keyless vendors run on this computer (Ollama)
+  const local = vendor.keyEnv === null;
+  // On this computer a call costs nothing (recorded as 0, not as an unknown price); elsewhere it's the price list's, or unknown
+  const costOf = vendor.prices ? (await vendor.prices()).costOf : local ? () => 0 : null;
   const client = protocol.createClient({
     baseUrl,
     apiKey,
@@ -148,8 +151,6 @@ export async function createChatPolisher({
     costOf,
     ...(fetch ? { fetch } : {}),
   });
-  // Keyless vendors run on this computer (Ollama)
-  const local = vendor.keyEnv === null;
   return createPolisher({
     endpoint: { id: vendor.id, name, local },
     client,

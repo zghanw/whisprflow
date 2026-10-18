@@ -275,3 +275,25 @@ test("the app being typed into goes in the prompt with the light tone rule; with
   await polisher.polish("cant make it today", {});
   assert.equal(requests[1].system, POLISH_PROMPT);
 });
+
+test("cleanup on this computer (Ollama) is billed as free, not as an unknown price", async () => {
+  const calls = [];
+  const fetch = async () =>
+    new Response(
+      JSON.stringify({
+        model: "qwen3:4b-instruct",
+        choices: [{ message: { content: "Done." }, finish_reason: "stop" }],
+        usage: { prompt_tokens: 300, completion_tokens: 3 },
+      }),
+      { status: 200, headers: { "content-type": "application/json" } },
+    );
+  const polisher = await createChatPolisher({
+    choice: { vendor: "ollama", model: "qwen3:4b-instruct" },
+    apiKey: null,
+    log: quiet,
+    onCall: (call) => calls.push(call),
+    fetch,
+  });
+  await polisher.polish("done", { audioId: "a1" });
+  assert.equal(calls[0].costUsd, 0);
+});
