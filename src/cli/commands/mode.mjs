@@ -8,7 +8,7 @@ import { Cancelled } from "../ask-secret.mjs";
 import { currentSettings, parse, renderOptions, UsageError } from "../common.mjs";
 import { renderModes, routeTitle } from "../render/modes.mjs";
 import { storeSetting } from "./config.mjs";
-import { currentProvider, keySource } from "./key.mjs";
+import { keySource } from "./key.mjs";
 import { modelStatus, offerDownload } from "./local-models.mjs";
 import { applyChange, checked, ensureKey, modeNow, routeWith } from "./route.mjs";
 
@@ -86,24 +86,25 @@ const MAX_CHOICE_ATTEMPTS = 3;
 const localSize = (id) => `${Math.round(downloadSize(findModel(id) ?? findModel(DEFAULT_TRANSCRIBER)) / 1_000_000)} MB`;
 
 /**
- * On first start with no key yet, asks which mode and provider to use: which keys people have differs.
- * Lists them grouped by mode; a choice other than the configured provider is saved to the settings. Providers that already have a key are marked, so choosing one needs no new key.
- * The last option is private mode: on-device transcription only, no key.
+ * On first start, before any mode is chosen, asks which mode and provider to use. Local mode (on-device plus Ollama) comes first and is the default.
+ * Lists them grouped by mode; the chosen mode is always saved (so this is asked once), and the provider too when it differs from the settings.
+ * Providers that already have a key are marked, so choosing one needs no new key. The last option is private mode: on-device transcription only, no key.
  * A custom service needs an address and model name, which aren't asked here: it says how to switch to it later.
  * @returns {Promise<{ mode: string, vendor: object | null } | null>} the chosen mode and provider (private mode has none, so null);
  *   null after Ctrl-C or running out of attempts without a choice (no insisting)
  */
 export async function chooseProvider(io) {
   const { t } = io;
-  const current = currentProvider(io);
   const settings = currentSettings(io);
+  /** The provider each mode is set to now: native's audio vendor, local's cleanup vendor */
+  const configured = { native: settings.model.value.split("/")[0], local: settings.polish.value.split("/")[0] };
   const groups = [
-    { mode: "native", vendors: PROVIDERS, title: t("cli.choose.native") },
     {
       mode: "local",
       vendors: CHAT_VENDORS.filter(({ defaultModel }) => defaultModel !== null),
       title: t("cli.choose.local", { size: localSize(settings.transcriber.value) }),
     },
+    { mode: "native", vendors: PROVIDERS, title: t("cli.choose.native") },
   ];
   const options = [
     ...groups.flatMap(({ mode, vendors }) => vendors.map((vendor) => ({ mode, vendor }))),
@@ -130,7 +131,11 @@ export async function chooseProvider(io) {
     `  ${t("cli.choose.private", { size: localSize(settings.privateTranscriber.value) })}`,
     `    ${options.length}  ${t("cli.choose.privateOption")}`,
   );
-  const fallback = options.findIndex(({ vendor }) => vendor !== null && vendor.id === current?.id) + 1 || 1;
+  const mode = settings.mode.value;
+  const fallback =
+    options.findIndex((option) =>
+      mode === "private" ? option.mode === "private" : option.mode === mode && option.vendor?.id === configured[mode],
+    ) + 1 || 1;
   lines.push(t("cli.choose.custom"), t("cli.model.choosePrompt", { fallback }));
   const question = lines.join("\n");
   for (let attempt = 0; attempt < MAX_CHOICE_ATTEMPTS; attempt++) {
@@ -147,12 +152,10 @@ export async function chooseProvider(io) {
         : (options[Number(answer) - 1] ??
           options.find(({ mode, vendor }) => (vendor?.id ?? mode) === answer.toLowerCase()));
     if (chosen) {
-      if (chosen.mode === "private") storeSetting(io, "mode", "private");
-      else if (chosen.vendor.id !== current?.id) {
-        if (chosen.mode === "native") storeSetting(io, "model", chosen.vendor.id);
-        else storeSetting(io, "polish", chosen.vendor.id);
-        storeSetting(io, "mode", chosen.mode);
+      if (chosen.vendor && chosen.vendor.id !== configured[chosen.mode]) {
+        storeSetting(io, chosen.mode === "native" ? "model" : "polish", chosen.vendor.id);
       }
+      storeSetting(io, "mode", chosen.mode);
       return chosen;
     }
     const choices = options.map(({ vendor }, index) =>

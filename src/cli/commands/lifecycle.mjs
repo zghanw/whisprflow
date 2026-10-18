@@ -24,19 +24,21 @@ export async function start(args, io) {
   let provider = currentProvider(io);
 
   let started = await io.daemon.status();
-  // First use: the provider and key are asked for before starting. Starting takes a while (the first time also downloads and shows permission prompts), and the terminal echoes as usual meanwhile;
-  // asking only then would show the key on screen for anyone who pasted it early
-  const firstRun = started === null && io.interactive && !hasKeyAlready(io);
   /** Ctrl-C while choosing a provider: skip the key questions too */
   let declined = false;
-  // If the settings (or environment variables) already fix the mode and provider, use those without asking
+  // Nothing chosen yet (no mode or model in settings or the environment): ask how to dictate before starting. The answer is saved, so it's asked once
   const settings = currentSettings(io);
-  if (firstRun && settings.mode.source === "default" && settings.model.source === "default") {
+  const choosing =
+    started === null && io.interactive && settings.mode.source === "default" && settings.model.source === "default";
+  if (choosing) {
     const chosen = await chooseProvider(io);
     if (chosen === null) declined = true;
     // A keyless choice (private mode, Ollama) asks for no key below
     else provider = chosen.vendor?.keyEnv ? chosen.vendor : null;
   }
+  // First use: the key is asked for before starting. Starting takes a while (the first time also downloads and shows permission prompts), and the terminal echoes as usual meanwhile;
+  // asking only then would show the key on screen for anyone who pasted it early
+  const firstRun = choosing || (started === null && io.interactive && !hasKeyAlready(io));
   // Private mode needs no key (provider is undefined or null): ask for none below
   const nextKey = provider ? keyPrompter(io, provider) : async () => null;
   /** The first key asked for. undefined: not asked yet; null: asked, nothing entered */

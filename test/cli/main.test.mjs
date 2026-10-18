@@ -340,6 +340,8 @@ function haveModel(id = "qwen3-asr-0.6b-q8") {
 
 /** Pretends a key was saved earlier */
 const haveStoredKey = () => writeFileSync(keyFile(paths, "gemini"), "ciphertext");
+/** Native mode already chosen in settings: no first-run question, so the key flow starts at once */
+const useNative = () => writeFileSync(paths.settingsFile, JSON.stringify({ mode: "native" }));
 
 // ---------- Starting ----------
 
@@ -361,7 +363,8 @@ test("already running: no second start, only the panel; start and no arguments a
   }
 });
 
-test("first use: asks for the key, then starts; once saved it works; the key appears in no output", async () => {
+test("native mode without a key: asks for the key, then starts; once saved it works; the key appears in no output", async () => {
+  useNative();
   const saved = [];
   const daemon = fakeDaemon({
     afterStart: NO_KEY,
@@ -388,15 +391,15 @@ test("first use: asks for the key, then starts; once saved it works; the key app
   assert.ok(!(output.out + output.err).includes("AIza-my-secret"));
 });
 
-test("first use: asks which vendor, grouped by mode; picking Ollama goes to local mode and asks for no key", async () => {
+test("first use: asks which vendor, grouped by mode, local first; picking Ollama saves local mode and asks for no key", async () => {
   const keyless = { state: "ready", source: "none", problem: null };
   const daemon = fakeDaemon({ afterStart: { ...READY, provider: null, mode: "local", key: keyless } });
-  const { whisprflow, questions, asked, output } = harness({ daemon, answers: ["3"] });
+  const { whisprflow, questions, asked, output } = harness({ daemon, answers: ["1"] });
   const code = await whisprflow();
   assert.equal(code, 0, output.out + output.err);
   assert.match(
     questions[0],
-    /native mode[\s\S]*1.*Gemini[\s\S]*2.*OpenAI[\s\S]*local mode.*850 MB[\s\S]*3.*Ollama.*no key needed[\s\S]*4/,
+    /local mode.*850 MB[\s\S]*1.*Ollama.*no key needed[\s\S]*native mode[\s\S]*2.*Gemini[\s\S]*3.*OpenAI[\s\S]*4/,
   );
   assert.match(questions[0], /custom\/<model> --url/);
   assert.deepEqual([saved("mode"), saved("polish")], ["local", "ollama/qwen3:4b-instruct"]);
@@ -414,7 +417,7 @@ test("first use: asks which vendor first; picking OpenAI saves it to settings an
   });
   const whenChosen = () => {
     assert.deepEqual(daemon.calls, [], "startup hasn't begun while choosing");
-    return "2";
+    return "3";
   };
   const { whisprflow, questions, asked, output } = harness({
     daemon,
@@ -423,8 +426,8 @@ test("first use: asks which vendor first; picking OpenAI saves it to settings an
   });
   assert.equal(await whisprflow(), 0);
   assert.equal(questions.length, 1);
-  assert.match(questions[0], /1.*Gemini/);
-  assert.match(questions[0], /2.*OpenAI/);
+  assert.match(questions[0], /2.*Gemini/);
+  assert.match(questions[0], /3.*OpenAI/);
   // It also says how to change later, so nobody thinks the choice is final
   assert.match(questions[0], /whisprflow model/);
   assert.equal(resolveSettings({ file: paths.settingsFile, env: {} }).model.value, "openai/gpt-audio-mini");
@@ -436,13 +439,16 @@ test("first use: asks which vendor first; picking OpenAI saves it to settings an
   assert.ok(!(output.out + output.err).includes("sk-my-secret"));
 });
 
-test("first use: plain Enter means Gemini, and the settings file is untouched", async () => {
-  const daemon = fakeDaemon({ afterStart: NO_KEY });
-  const { whisprflow, questions, asked } = harness({ daemon, answers: [""], secrets: ["AIza-key"] });
-  assert.equal(await whisprflow(), 0);
-  assert.equal(questions.length, 1);
-  assert.ok(!existsSync(paths.settingsFile));
-  assert.match(asked[0], /aistudio\.google\.com/);
+test("first use: plain Enter means local mode with Ollama, and the choice is saved so it is asked only once", async () => {
+  const first = harness({ daemon: fakeDaemon({ afterStart: LOCAL_READY }), answers: [""] });
+  assert.equal(await first.whisprflow(), 0);
+  assert.equal(first.questions.length, 1);
+  assert.equal(first.asked.length, 0, "no key needed");
+  assert.equal(JSON.parse(readFileSync(paths.settingsFile, "utf8")).mode, "local");
+
+  const again = harness({ daemon: fakeDaemon({ afterStart: LOCAL_READY }) });
+  assert.equal(await again.whisprflow(), 0);
+  assert.equal(again.questions.length, 0);
 });
 
 test("names work when choosing too; a wrong answer lists the choices and asks again", async () => {
@@ -458,7 +464,7 @@ test("names work when choosing too; a wrong answer lists the choices and asks ag
 test("another vendor that already has a key is marked; choosing it needs no key entry and starts with it", async () => {
   writeFileSync(keyFile(paths, "openai"), "ciphertext");
   const daemon = fakeDaemon({ afterStart: { ...READY, provider: "openai", model: "openai/gpt-audio-mini" } });
-  const { whisprflow, questions, asked } = harness({ daemon, answers: ["2"] });
+  const { whisprflow, questions, asked } = harness({ daemon, answers: ["3"] });
   assert.equal(await whisprflow(), 0);
   assert.match(questions[0], /OpenAI.*key already set/);
   assert.equal(asked.length, 0);
@@ -467,7 +473,7 @@ test("another vendor that already has a key is marked; choosing it needs no key 
 });
 
 test("when settings or the environment already chose the vendor: no vendor question, straight to that vendor's key", async () => {
-  writeFileSync(paths.settingsFile, JSON.stringify({ model: "openai/gpt-audio-1.5" }));
+  writeFileSync(paths.settingsFile, JSON.stringify({ mode: "native", model: "openai/gpt-audio-1.5" }));
   const fromFile = harness({ daemon: fakeDaemon({ afterStart: NO_KEY }), secrets: ["sk-key"] });
   assert.equal(await fromFile.whisprflow(), 0);
   assert.equal(fromFile.questions.length, 0);
@@ -476,24 +482,25 @@ test("when settings or the environment already chose the vendor: no vendor quest
 
   const fromEnv = harness({
     daemon: fakeDaemon({ afterStart: NO_KEY }),
-    env: { WHISPRFLOW_MODEL: "gemini" },
+    env: { WHISPRFLOW_MODE: "native", WHISPRFLOW_MODEL: "gemini" },
     secrets: ["AIza"],
   });
   assert.equal(await fromEnv.whisprflow(), 0);
   assert.equal(fromEnv.questions.length, 0);
 });
 
-test("Ctrl-C while choosing: no key question, it starts with the default, and the panel says the key is missing", async () => {
-  const daemon = fakeDaemon({ afterStart: NO_KEY });
-  const { whisprflow, questions, asked, output } = harness({ daemon, answers: [new Cancelled()] });
+test("Ctrl-C while choosing: no key question, nothing saved, and it starts with the default (local)", async () => {
+  const daemon = fakeDaemon({ afterStart: LOCAL_READY });
+  const { whisprflow, questions, asked } = harness({ daemon, answers: [new Cancelled()] });
   assert.equal(await whisprflow(), 0);
   assert.equal(questions.length, 1);
   assert.equal(asked.length, 0);
   assert.deepEqual(daemon.calls, ["start", "recheck"]);
-  assert.match(output.out, /1 thing missing/);
+  assert.ok(!existsSync(paths.settingsFile));
 });
 
 test("with a key already (stored or from the environment) it starts directly without asking", async () => {
+  useNative();
   haveStoredKey();
   const stored = harness();
   assert.equal(await stored.whisprflow(), 0);
@@ -506,6 +513,7 @@ test("with a key already (stored or from the environment) it starts directly wit
 });
 
 test("a malformed key (line breaks, spaces) is reported and asked again on the spot, never sent to the background, and its content stays out of the output", async () => {
+  useNative();
   const saved = [];
   const daemon = fakeDaemon({
     afterStart: NO_KEY,
@@ -523,6 +531,7 @@ test("a malformed key (line breaks, spaces) is reported and asked again on the s
 });
 
 test("a stored key found unusable after starting: then it asks for another", async () => {
+  useNative();
   haveStoredKey();
   const daemon = fakeDaemon({ afterStart: REVOKED_KEY });
   const { whisprflow, asked, output } = harness({ daemon, secrets: ["AIza-new"] });
@@ -533,6 +542,7 @@ test("a stored key found unusable after starting: then it asks for another", asy
 });
 
 test("no key question when the problem isn't the key: a misspelled model or a bad key in the environment are only reported in the panel", async () => {
+  useNative();
   haveStoredKey();
   const wrongModel = harness({ daemon: fakeDaemon({ afterStart: WRONG_MODEL }) });
   assert.equal(await wrongModel.whisprflow(), 0);
@@ -548,6 +558,7 @@ test("no key question when the problem isn't the key: a misspelled model or a ba
 });
 
 test("a wrong key gets the reason and another question", async () => {
+  useNative();
   const answers = [{ ok: false, problem: "This key is invalid. Check it was copied in full" }, { ok: true }];
   const daemon = fakeDaemon({ afterStart: NO_KEY, saveKey: () => answers.shift() });
   const { whisprflow, output, asked } = harness({ daemon, secrets: ["wrong", "right"] });
@@ -558,6 +569,7 @@ test("a wrong key gets the reason and another question", async () => {
 });
 
 test("nothing entered or Ctrl-C at the key question: no pestering, and the panel says the key is missing", async () => {
+  useNative();
   for (const secret of ["", new Cancelled()]) {
     const daemon = fakeDaemon({ afterStart: NO_KEY });
     const { whisprflow, output, asked } = harness({ daemon, secrets: [secret] });
@@ -593,6 +605,7 @@ test("first use with system permissions missing: opens onboarding and says so in
 });
 
 test("an existing user missing system permissions: only settings open", async () => {
+  useNative();
   haveStoredKey();
   const daemon = fakeDaemon({ afterStart: NO_PERMISSIONS });
   const { whisprflow, output } = harness({ daemon });
@@ -916,6 +929,7 @@ test("status --json includes whether there is a new version (newVersion, null wh
 // ---------- key ----------
 
 test("key: starts it if not running, asks for a key, and saves it", async () => {
+  useNative();
   const saved = [];
   const daemon = fakeDaemon({
     afterStart: NO_KEY,
@@ -932,6 +946,7 @@ test("key: starts it if not running, asks for a key, and saves it", async () => 
 });
 
 test("key: a failed verification gives the reason and exits non-zero, without asking again and again", async () => {
+  useNative();
   const daemon = fakeDaemon({
     running: READY,
     saveKey: () => ({ ok: false, problem: "Can't reach Gemini. Check your network" }),
@@ -943,6 +958,7 @@ test("key: a failed verification gives the reason and exits non-zero, without as
 });
 
 test("key: nothing read means the background app is left alone", async () => {
+  useNative();
   const daemon = fakeDaemon({ running: READY });
   const { whisprflow, output } = harness({ daemon, secrets: [""] });
   assert.equal(await whisprflow("key"), 1);
@@ -951,6 +967,7 @@ test("key: nothing read means the background app is left alone", async () => {
 });
 
 test("key: piped content that looks wrong (multiple lines, say): no start, nothing sent to the background, and the content stays out of the output", async () => {
+  useNative();
   const { whisprflow, output, daemon } = harness({ secrets: ["line-one-SECRET\nline-two-SECRET"] });
   assert.equal(await whisprflow("key"), 1);
   assert.deepEqual(daemon.calls, []);
@@ -968,6 +985,7 @@ test("a key right after the key command is not used or echoed back, with a warni
 });
 
 test("key --forget deletes the saved key; if running, it forgets it too", async () => {
+  useNative();
   const seed = () => {
     writeFileSync(keyFile(paths, "gemini"), "ciphertext");
   };
@@ -1048,6 +1066,7 @@ test("config set warns when an environment variable overrides the setting", asyn
 });
 
 test("config set is the unchecked back door: mode-layer settings are written as is, with the usual command named; settings of another mode take effect once switched", async () => {
+  useNative();
   const { whisprflow, output } = harness();
   assert.equal(await whisprflow("config", "set", "transcriber", "qwen3-asr-0.6b-int8"), 0);
   assert.equal(saved("transcriber"), "qwen3-asr-0.6b-int8");
@@ -1678,6 +1697,7 @@ test("model lists the vendors, their models, whether each has a key, and which o
 });
 
 test("model <vendor> switches directly when its key exists; if running it switches at once without a restart", async () => {
+  useNative();
   haveOpenAIKey();
   const { whisprflow, output, daemon } = harness({ daemon: fakeDaemon({ running: READY }) });
   assert.equal(await whisprflow("model", "openai"), 0);
@@ -1728,6 +1748,7 @@ test("model <vendor> without its key asks first; the answer is verified by the b
 });
 
 test("model <vendor> without its key and no way to ask (not a terminal), or no answer given: no switch, and it says what to do first", async () => {
+  useNative();
   const quiet = harness({ interactive: false });
   assert.equal(await quiet.whisprflow("model", "openai"), 1);
   assert.match(quiet.output.err, /No OpenAI key yet.*whisprflow key openai/);
@@ -1851,7 +1872,7 @@ test("key --forget <vendor> deletes only that vendor's key; without one it delet
 });
 
 test("first start while using OpenAI asks for the OpenAI key", async () => {
-  writeFileSync(paths.settingsFile, JSON.stringify({ model: "openai/gpt-audio-mini" }));
+  writeFileSync(paths.settingsFile, JSON.stringify({ mode: "native", model: "openai/gpt-audio-mini" }));
   const daemon = fakeDaemon({ afterStart: { ...NO_KEY, provider: "openai", model: "openai/gpt-audio-mini" } });
   const { whisprflow, asked } = harness({ daemon, secrets: ["sk-first"] });
   assert.equal(await whisprflow(), 0);
@@ -1874,6 +1895,7 @@ test("after changing the model, a restart finding that vendor has no key says it
 });
 
 test("changing the model while GEMINI_MODEL (the older name) is set warns that it overrides the new value", async () => {
+  useNative();
   haveOpenAIKey();
   const { whisprflow, output } = harness({ env: { GEMINI_MODEL: "gemini-3.5-flash" } });
   assert.equal(await whisprflow("model", "openai"), 0);
@@ -2078,6 +2100,7 @@ test("the first-start options include private mode: choosing it asks for no key 
 });
 
 test("mode lists the modes and the models each uses, marks the one in use, and says how to switch and change models", async () => {
+  useNative();
   const { whisprflow, output } = harness();
   assert.equal(await whisprflow("mode"), 0);
   assert.match(output.out, /● native\s+.*Gemini gemini-3\.6-flash/);
@@ -2119,6 +2142,7 @@ test("mode local carrying step two: without a key for the custom service it asks
 });
 
 test("mode <mode> without the needed key and no way to ask doesn't switch and says what to do; when not running it saves for next launch", async () => {
+  useNative();
   haveModel();
   const quiet = harness({ interactive: false });
   assert.equal(await quiet.whisprflow("mode", "local", ...CUSTOM), 1);

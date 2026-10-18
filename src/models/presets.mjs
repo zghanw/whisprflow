@@ -22,6 +22,11 @@ export const PRESETS = Object.freeze(
       settings: { model: "gemini/gemini-3.6-flash" },
     },
     {
+      id: "native-openai",
+      mode: "native",
+      settings: { model: "openai/gpt-audio-mini" },
+    },
+    {
       id: "private-qwen",
       mode: "private",
       settings: { privateTranscriber: "qwen3-asr-0.6b-q8" },

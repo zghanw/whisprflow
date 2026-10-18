@@ -24,8 +24,7 @@ export function termsFrom(output, text) {
     .split(/\r?\n/)
     .map((line) => line.replace(/^[\s\-*\u2022]+|[\s\-*\u2022]+$/g, ""))
     .filter(
-      (term) =>
-        term.length > 1 && term.length <= 40 && lower.includes(term.toLowerCase()) && /\p{Lu}/u.test(term),
+      (term) => term.length > 1 && term.length <= 40 && lower.includes(term.toLowerCase()) && /\p{Lu}/u.test(term),
     );
 }
 

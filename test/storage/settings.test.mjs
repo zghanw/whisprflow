@@ -36,7 +36,7 @@ const OTHER_HOTKEY = HOTKEY_IDS.at(-1);
 test("with no file and no environment, everything is a default", () => {
   assert.deepEqual(resolveSettings({ file, env: {} }), {
     hotkey: { value: DEFAULT_HOTKEY, source: "default" },
-    mode: { value: "native", source: "default" },
+    mode: { value: "local", source: "default" },
     model: { value: "gemini/gemini-3.6-flash", source: "default" },
     thinking: { value: "MINIMAL", source: "default" },
     transcriber: { value: "qwen3-asr-0.6b-q8", source: "default" },
@@ -221,7 +221,14 @@ test("Gemini models are saved in the older form too (model name only), so an old
   assert.deepEqual(JSON.parse(readFileSync(file, "utf8")), { model: "openai/gpt-audio-mini" });
 });
 
-test("recognition mode: native by default; switched to local, the route holds the on-device model, the cleanup vendor, and the custom address", () => {
+test("recognition mode: local (on-device plus Ollama) by default; native holds the audio model; local holds the on-device model, the cleanup vendor, and the custom address", () => {
+  assert.deepEqual(routeOf(resolveSettings({ file, env: {} })), {
+    mode: "local",
+    transcriber: "qwen3-asr-0.6b-q8",
+    polish: { vendor: "ollama", model: "qwen3:4b-instruct" },
+    customUrl: null,
+  });
+  saveSetting(file, "mode", "Native");
   assert.deepEqual(routeOf(resolveSettings({ file, env: {} })), {
     mode: "native",
     model: { provider: "gemini", model: "gemini-3.6-flash" },
@@ -254,7 +261,7 @@ test("each mode's route reads only its own settings: a route can be built for a 
   saveSetting(file, "model", "openai");
   saveSetting(file, "polish", "ollama/llama3.2:3b");
   const settings = resolveSettings({ file, env: {} });
-  assert.equal(settings.mode.value, "native");
+  assert.equal(settings.mode.value, "local");
   assert.deepEqual(routeOf(settings, "local"), {
     mode: "local",
     transcriber: "qwen3-asr-0.6b-q8",

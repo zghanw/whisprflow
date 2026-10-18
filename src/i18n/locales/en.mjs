@@ -486,6 +486,7 @@ export default {
     items: {
       "local-qwen": { name: "On-device + Ollama", desc: "AI cleanup · Nothing uploaded · Free" },
       "native-gemini": { name: "Gemini Native", desc: "One step · One key" },
+      "native-openai": { name: "OpenAI Native", desc: "One step · One key" },
       "private-qwen": { name: "Fully On-device", desc: "Nothing uploaded · Free" },
       "local-qwen-cpu": { name: "On-device + Ollama", desc: "AI cleanup · Nothing uploaded · Free" },
       "private-qwen-cpu": { name: "Fully On-device", desc: "Nothing uploaded · Free" },

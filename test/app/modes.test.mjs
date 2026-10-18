@@ -14,6 +14,8 @@ let file;
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "whisprflow-modes-"));
   file = join(dir, "settings.json");
+  // These start from native, so every switch below is a real change (a fresh install starts in local)
+  saveSetting(file, "mode", "native");
 });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 

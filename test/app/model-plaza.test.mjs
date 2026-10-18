@@ -176,9 +176,9 @@ test("presets: those suiting this machine in recommended order, each with its mo
   });
   assert.deepEqual(
     presets.map(({ id }) => id),
-    ["local-qwen", "native-gemini", "private-qwen"],
+    ["local-qwen", "native-gemini", "native-openai", "private-qwen"],
   );
-  const [local, native, privately] = presets;
+  const [local, native, openai, privately] = presets;
 
   assert.equal(local.active, true);
   assert.deepEqual(local.needs, []);
@@ -195,6 +195,8 @@ test("presets: those suiting this machine in recommended order, each with its mo
   assert.deepEqual(native.needs, [{ kind: "key", platform: "gemini" }]);
   assert.deepEqual(native.settings, { model: "gemini/gemini-3.6-flash" });
   assert.ok(native.monthly.usd > 0);
+  assert.deepEqual(openai.needs, [{ kind: "key", platform: "openai" }]);
+  assert.ok(openai.monthly.usd > 0);
 
   assert.equal(privately.monthly.usd, 0);
   assert.equal(privately.active, false, "private is not in use");
@@ -204,6 +206,6 @@ test("presets follow the chip: Intel Macs get the CPU build of the on-device mod
   const { presets } = await view({ presets: presetsWith({}, "intel-mac") });
   assert.deepEqual(
     presets.map(({ id }) => id),
-    ["native-gemini", "local-qwen-cpu", "private-qwen-cpu"],
+    ["native-gemini", "native-openai", "local-qwen-cpu", "private-qwen-cpu"],
   );
 });

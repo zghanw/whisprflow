@@ -111,7 +111,7 @@ export const MODES = Object.freeze([
   }),
 ]);
 
-export const DEFAULT_MODE = "native";
+export const DEFAULT_MODE = "local";
 
 /** @returns {(typeof MODES)[number] | null} case-insensitive */
 export function findMode(id) {

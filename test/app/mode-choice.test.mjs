@@ -5,12 +5,12 @@ import { createTranslator } from "../../src/i18n/index.mjs";
 import { boot, requests } from "./route-harness.mjs";
 
 // Which recognition mode to use is the user's call; whether it works is state, and the two stay apart (app/modes.mjs).
-// Requiring keys and downloads before switching would trap a fresh install (native, no key, no model downloaded) in native.
+// Requiring keys and downloads before switching would trap someone in native mode with no key and no model downloaded.
 // Here the whole core runs end to end (./route-harness.mjs): a switch takes effect at once, what's missing is state, and it works once filled in.
 
 const en = createTranslator("en");
-/** Freshly installed: nothing in settings (native, Gemini) and no key saved */
-const FRESH = {};
+/** Native with nothing else set and no key saved: the hardest place to switch away from */
+const FRESH = { mode: "native" };
 const QWEN = "qwen3-asr-0.6b-q8";
 const CUSTOM = { polish: "custom/qwen3:8b", customUrl: "http://x.example/v1" };
 
@@ -20,7 +20,16 @@ async function loaded(app) {
   return app.service.localModel.state;
 }
 
-test("fresh install, model not downloaded: switching to private takes effect at once and the state says the model isn't downloaded; once downloaded it loads and works", async (t) => {
+test("a fresh install starts in local mode: on-device transcription plus Ollama cleanup, ready with no key", async (t) => {
+  const app = await boot(t, { settings: {} });
+  await app.keys.loadAtStartup();
+  assert.equal(app.service.route.mode, "local");
+  assert.deepEqual(app.service.route.polish, { vendor: "ollama", model: "qwen3:4b-instruct" });
+  assert.equal(app.keys.provider, null);
+  assert.deepEqual([app.keys.current.state, app.keys.current.source], ["ready", "none"]);
+});
+
+test("native, model not downloaded: switching to private takes effect at once and the state says the model isn't downloaded; once downloaded it loads and works", async (t) => {
   const installed = [];
   const app = await boot(t, { settings: FRESH, installed });
   await app.keys.loadAtStartup();
@@ -39,7 +48,7 @@ test("fresh install, model not downloaded: switching to private takes effect at 
   assert.equal(await loaded(app), "ready");
 });
 
-test("fresh install: switching to local with Ollama cleanup works at once with no key", async (t) => {
+test("native without a key: switching to local with Ollama cleanup works at once with no key", async (t) => {
   const app = await boot(t, { settings: FRESH });
   await app.keys.loadAtStartup();
   assert.equal((await app.modes.switchMode("local")).ok, true);
@@ -49,7 +58,7 @@ test("fresh install: switching to local with Ollama cleanup works at once with n
   assert.deepEqual([app.keys.current.state, app.keys.current.source], ["ready", "none"]);
 });
 
-test("fresh install, custom service without a key: switching still works, the state names the missing key, and saving one makes it work", async (t) => {
+test("native without a key, custom service without a key: switching still works, the state names the missing key, and saving one makes it work", async (t) => {
   const app = await boot(t, { settings: FRESH });
   await app.keys.loadAtStartup();
   assert.equal((await app.modes.switchMode("local", CUSTOM)).ok, true);

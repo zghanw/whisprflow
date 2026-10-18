@@ -24,6 +24,9 @@ export const TYPICAL = Object.freeze({
   /** One native request, per vendor, written as that vendor's price module costOf expects (providers/prices) */
   native: Object.freeze({
     gemini: Object.freeze({ text: 1415, audio: 666, cachedText: 0, cachedAudio: 0, output: 54 }),
+    // Not measured yet, derived: OpenAI documents audio input at about 10 tokens a second, and the prompt and reply are taken as Gemini's measured size.
+    // Replace with a measurement over the same recordings
+    openai: Object.freeze({ text: 1415, audio: Math.round(26.3 * 10), textOutput: 54, audioOutput: 0 }),
   }),
 });
 
