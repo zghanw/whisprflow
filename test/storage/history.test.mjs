@@ -102,7 +102,7 @@ test("statistics count only completed dictations, optionally after a moment", ()
 
   assert.deepEqual(history.stats(), {
     dictations: 3,
-    characters: "said yesterday".length + "first today".length + "second today".length,
+    words: 6,
     seconds: 15.5,
     failed: 1,
     costUsd: 0,
@@ -110,7 +110,7 @@ test("statistics count only completed dictations, optionally after a moment", ()
   });
   assert.deepEqual(history.stats({ since: "2026-10-13T00:00:00.000Z" }), {
     dictations: 2,
-    characters: "first today".length + "second today".length,
+    words: 4,
     seconds: 9.5,
     failed: 1,
     costUsd: 0,
@@ -137,7 +137,7 @@ test("an empty history gives all zeros", () => {
   const history = openHistory(join(dir, "history.db"));
   assert.deepEqual(history.stats(), {
     dictations: 0,
-    characters: 0,
+    words: 0,
     seconds: 0,
     failed: 0,
     costUsd: 0,

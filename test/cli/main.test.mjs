@@ -1350,12 +1350,12 @@ test("with history, the panel shows today's and all-time numbers; with billing, 
   seedHistory();
   const before = harness({ daemon: fakeDaemon({ running: READY }) });
   await before.whisprflow("status");
-  assert.match(before.output.out, /All time\s+2 dictations · 24 characters · 8 ?s\n/);
+  assert.match(before.output.out, /All time\s+2 dictations · 4 words · 8 ?s\n/);
 
   seedCall();
   const after = harness({ daemon: fakeDaemon({ running: READY }) });
   await after.whisprflow("status");
-  assert.match(after.output.out, /All time\s+2 dictations · 24 characters · 8 ?s · \$0\.0011\n/);
+  assert.match(after.output.out, /All time\s+2 dictations · 4 words · 8 ?s · \$0\.0011\n/);
   assert.match(after.output.out, /whisprflow usage/);
 });
 

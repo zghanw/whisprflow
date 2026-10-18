@@ -99,7 +99,7 @@ export function renderTranscribers({ models, chip, freeBytes, setting, source, s
       size: sizeText(installed.reduce((sum, model) => sum + model.bytes, 0)),
     }),
   ];
-  if (freeBytes !== null) summary.push(t("cli.local.freeSpace", { size: sizeText(freeBytes) }));
+  if (Number.isFinite(freeBytes)) summary.push(t("cli.local.freeSpace", { size: sizeText(freeBytes) }));
   const missing = models.find((model) => !model.installed) ?? models[0];
   const other = models.find(({ id, installed: done }) => id !== setting && done);
   const otherSource = sources.find((id) => id !== source);

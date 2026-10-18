@@ -472,7 +472,9 @@ export function createModels({ refresh, pickMode }) {
         ),
       );
     }
-    const price = offerOf(role, group, item)?.price;
+    const offer = offerOf(role, group, item);
+    const price = offer?.price;
+    if (offer?.free) return h("span", { class: "cell-end metric", role: "cell", "data-label": col.label, text: t("plaza.cols.free") });
     if (!price || typeof price[col.field] !== "number") {
       return h("span", {
         class: "cell-end metric-none",
@@ -775,10 +777,11 @@ export function createModels({ refresh, pickMode }) {
     let meta = null;
     if (local) {
       const done = group.items.filter(({ installed }) => installed).length;
-      meta = t(group.freeBytes === null ? "plaza.groups.localMeta" : "plaza.groups.localMetaFree", {
+      const known = Number.isFinite(group.freeBytes);
+      meta = t(known ? "plaza.groups.localMetaFree" : "plaza.groups.localMeta", {
         done: String(done),
         total: String(group.items.length),
-        free: group.freeBytes === null ? "" : `${Math.round(group.freeBytes / 1e9)} GB`,
+        free: known ? `${Math.round(group.freeBytes / 1e9)} GB` : "",
       });
     } else if (role === "transcribe" && !custom) {
       meta = t("plaza.facts.upload", { platform: viaText(viaOf(role, group)) });

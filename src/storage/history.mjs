@@ -2,6 +2,7 @@ import { existsSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { LocalizedError, msg } from "../i18n/index.mjs";
+import { countWords } from "../usage/insights.mjs";
 
 // History and billing. The history table holds the columns dictation needs;
 // the model_calls table records every model call (the billing ledger).
@@ -98,6 +99,8 @@ export function openHistory(dbPath, { readOnly = false } = {}) {
   }
   // Wait a moment when another process is writing, instead of failing at once with "database is locked"
   db.exec("PRAGMA busy_timeout = 2000");
+  // Words are counted the same way as the home page insights, so the CLI and the window agree
+  db.function("word_count", { deterministic: true }, (text) => countWords(text ?? ""));
 
   const insert = db.prepare(
     `INSERT INTO history (id, status, refined_text, error, duration, audio_local_path, created_at)
@@ -128,7 +131,7 @@ export function openHistory(dbPath, { readOnly = false } = {}) {
   );
   const summarize = db.prepare(
     `SELECT count(*) FILTER (WHERE status = 'completed') AS dictations,
-            coalesce(sum(length(refined_text)) FILTER (WHERE status = 'completed'), 0) AS characters,
+            coalesce(sum(word_count(refined_text)) FILTER (WHERE status = 'completed'), 0) AS words,
             coalesce(sum(duration) FILTER (WHERE status = 'completed'), 0) AS seconds,
             count(*) FILTER (WHERE status = 'failed') AS failed,
             (SELECT coalesce(sum(cost_usd), 0) FROM model_calls WHERE created_at >= :since) AS costUsd,

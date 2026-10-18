@@ -148,30 +148,30 @@ test("while still starting it says so honestly, never ready too early", () => {
   assert.doesNotMatch(text, /start talking/);
 });
 
-test("with history it shows today's and all-time numbers: dictations, characters, time, characters per minute", () => {
+test("with history it shows today's and all-time numbers: dictations, words, time, words per minute", () => {
   const stats = {
-    today: { dictations: 3, characters: 420, seconds: 95, failed: 0 },
-    total: { dictations: 132, characters: 12480, seconds: 2880, failed: 2 },
+    today: { dictations: 3, words: 420, seconds: 95, failed: 0 },
+    total: { dictations: 132, words: 12480, seconds: 2880, failed: 2 },
   };
   const text = renderStatus({ status: ready, version: "0.1.0", settings, stats }, plain);
-  assert.match(text, /Today\s+3 dictations · 420 characters · 1m 35s/);
-  assert.match(text, /All time\s+132 dictations · 12,480 characters · 48 min · 260 characters\/min/);
+  assert.match(text, /Today\s+3 dictations · 420 words · 1m 35s/);
+  assert.match(text, /All time\s+132 dictations · 12,480 words · 48 min · 260 words\/min/);
 });
 
 test("with billing it adds the spend; with unpriced calls it says at least, never counting half as the whole", () => {
   const stats = {
-    today: { dictations: 3, characters: 420, seconds: 95, failed: 0, costUsd: 0.0036, unpricedCalls: 0 },
-    total: { dictations: 132, characters: 12480, seconds: 2880, failed: 2, costUsd: 0.16, unpricedCalls: 4 },
+    today: { dictations: 3, words: 420, seconds: 95, failed: 0, costUsd: 0.0036, unpricedCalls: 0 },
+    total: { dictations: 132, words: 12480, seconds: 2880, failed: 2, costUsd: 0.16, unpricedCalls: 4 },
   };
   const text = renderStatus({ status: ready, version: "0.1.0", settings, stats }, plain);
-  assert.match(text, /Today\s+3 dictations · 420 characters · 1m 35s · \$0\.0036\n/);
+  assert.match(text, /Today\s+3 dictations · 420 words · 1m 35s · \$0\.0036\n/);
   assert.match(text, /All time\s+.* · at least \$0\.16\n/);
 });
 
 test("no statistics before anything was said", () => {
   const stats = {
-    today: { dictations: 0, characters: 0, seconds: 0, failed: 0 },
-    total: { dictations: 0, characters: 0, seconds: 0, failed: 0 },
+    today: { dictations: 0, words: 0, seconds: 0, failed: 0 },
+    total: { dictations: 0, words: 0, seconds: 0, failed: 0 },
   };
   const text = renderStatus({ status: ready, version: "0.1.0", settings, stats }, plain);
   assert.doesNotMatch(text, /All time/);

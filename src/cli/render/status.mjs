@@ -158,14 +158,14 @@ function privateEntries(status, settings, t) {
   return entries;
 }
 
-function statsLine({ dictations, characters, seconds, costUsd, unpricedCalls }, { withPace, t }) {
+function statsLine({ dictations, words, seconds, costUsd, unpricedCalls }, { withPace, t }) {
   const parts = [
     t("cli.status.dictations", { count: dictations }),
-    t("cli.status.characters", { count: characters }),
+    t("cli.status.words", { count: words }),
     duration(seconds, t),
   ];
   // Characters per minute only appear in the all-time stats: on a light day the number jumps around too much to mean anything
-  if (withPace && seconds >= 60) parts.push(t("cli.status.pace", { count: Math.round(characters / (seconds / 60)) }));
+  if (withPace && seconds >= 60) parts.push(t("cli.status.pace", { count: Math.round(words / (seconds / 60)) }));
   // If some calls have no known price, the cost only covers part, so say "at least"; versions before cost tracking have no records, so don't show $0 and imply nothing was spent
   if (unpricedCalls > 0) {
     parts.push(costUsd > 0 ? t("cli.status.atLeast", { cost: formatUsd(costUsd) }) : t("cli.status.costUnknown"));

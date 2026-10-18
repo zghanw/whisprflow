@@ -86,6 +86,8 @@ function cloudShelf(role, { priceOf }) {
       row.offers[vendor.id] = {
         choice: `${vendor.id}/${model.id}`,
         price: priceOf(role, vendor.id, model.id),
+        // Keyless vendors run on this computer (Ollama): nothing to pay
+        free: vendor.keyEnv === null,
         unverified: Boolean(model.unverified),
       };
     }
