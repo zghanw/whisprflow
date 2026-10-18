@@ -261,3 +261,17 @@ test("on-device cleanup learns from the finished text in the background; a cloud
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(cloud.requests.length, 1, "no second request to learn");
 });
+
+test("the app being typed into goes in the prompt with the light tone rule; without it, neither does", async () => {
+  const { client, requests } = fakeClient(
+    { text: "Can't make it today.", problem: null, usage: USAGE },
+    { text: "Cannot make it today.", problem: null, usage: USAGE },
+  );
+  const polisher = polisherWith(client);
+  await polisher.polish("cant make it today", { app: "slack" });
+  assert.match(requests[0].system, /The user is typing into: slack\./);
+  assert.match(requests[0].system, /- Tone: in chat apps/);
+  assert.match(requests[0].system, /reword \(beyond contractions\)/);
+  await polisher.polish("cant make it today", {});
+  assert.equal(requests[1].system, POLISH_PROMPT);
+});

@@ -63,3 +63,16 @@ func TestEventsAreOneLineOfJson(t *testing.T) {
 		t.Fatalf("%q → %v %v", line, back, err)
 	}
 }
+
+func TestAppNameIsTheExecutableWithoutFolderOrExe(t *testing.T) {
+	for path, want := range map[string]string{
+		`C:\Program Files\Microsoft Office\root\Office16\OUTLOOK.EXE`: "OUTLOOK",
+		`C:\Users\me\AppData\Local\slack\app-4.41.0\slack.exe`:        "slack",
+		`/Applications/Mail.app/Contents/MacOS/Mail`:                  "Mail",
+		`notepad`: "notepad",
+	} {
+		if got := appName(path); got != want {
+			t.Fatalf("appName(%q) = %q, want %q", path, got, want)
+		}
+	}
+}

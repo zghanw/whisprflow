@@ -80,6 +80,12 @@ func mouseProc(code int32, wParam, lParam uintptr) uintptr {
 
 func report(result outcome) {
 	for _, e := range result.events {
+		// The app the text will go into: cleanup adjusts its tone to it
+		if e["event"] == "hotkey" && e["down"] == true {
+			if app := foregroundApp(); app != "" {
+				e["app"] = app
+			}
+		}
 		emit(e)
 	}
 	if result.mask {

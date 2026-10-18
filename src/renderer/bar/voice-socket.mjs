@@ -84,11 +84,11 @@ export class VoiceSocket {
   }
 
   /**
-   * Ends recording and waits for the finished text.
+   * Ends recording and waits for the finished text. app: the app the text goes into (from the key helper), so cleanup can follow its tone
    * @returns {Promise<{ text: string, notice: object | null }>} text is empty when there was no speech;
    *   notice is something the user should know about this result (cleanup skipped), a msg
    */
-  async finish({ durationSeconds, timeoutMs = REFINE_TIMEOUT_MS }) {
+  async finish({ durationSeconds, timeoutMs = REFINE_TIMEOUT_MS, app = null }) {
     const current = this.#current;
     if (!current) throw new Error("Finished before recording started");
     await current.sending;
@@ -105,6 +105,7 @@ export class VoiceSocket {
         audio_id: current.audioId,
         total_duration: durationSeconds,
         mode: "voice_transcript",
+        ...(app ? { app } : {}),
       }),
     );
     const timer = setTimeout(

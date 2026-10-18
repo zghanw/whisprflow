@@ -22,7 +22,8 @@ const PRIME_TIMEOUT_MS = 300_000;
  * @param {(error: unknown, detail: string) => object | null} [options.classify] how this protocol's errors are recognized
  * @param {string} [options.apiKey] only used to scrub it from error text
  * @param {(record: object) => void} [options.onCall] billing, see meter.mjs
- * @param {(terms: string[]) => string} [options.prompt] builds the system prompt from the dictionary's terms; replaceable to try out a candidate prompt
+ * @param {(terms: string[], app: string | null) => string} [options.prompt] builds the system prompt from the dictionary's terms and the app being typed into;
+ *   replaceable to try out a candidate prompt
  * @param {{ terms(): string[], learn(terms: string[]): string[] } | null} [options.dictionary] the user's dictionary (storage/dictionary.mjs):
  *   its terms go in the prompt as preferred spellings, and on-device cleanup learns new ones after each dictation
  * @param {string | null} [options.localModel] set when the service runs on this computer (Ollama): the model it should have.
@@ -48,7 +49,7 @@ export function createPolisher({
     const timeout = AbortSignal.timeout(timeoutMs);
     return signal ? AbortSignal.any([signal, timeout]) : timeout;
   };
-  const system = () => prompt(dictionary?.terms() ?? []);
+  const system = (app = null) => prompt(dictionary?.terms() ?? [], app);
   // Learning asks the model a second question per dictation: only on this computer, where it costs nothing and the text stays here
   const learn = localModel && dictionary ? createLearner({ client, dictionary, log }) : null;
 
@@ -94,12 +95,12 @@ export function createPolisher({
      * @param {string} transcript the on-device transcript
      * @returns {Promise<string>} the finished text; empty when the transcript is empty or the model finds nothing to type
      */
-    async polish(transcript, { signal, audioId = null } = {}) {
+    async polish(transcript, { signal, audioId = null, app = null } = {}) {
       // Nothing transcribed (silence, only noise): no need to spend a request
       if (transcript.trim() === "") return "";
       try {
         const reply = await metered("dictation", audioId, () =>
-          client.complete({ system: system(), user: polishInput(transcript), signal: withTimeout(signal) }),
+          client.complete({ system: system(app), user: polishInput(transcript), signal: withTimeout(signal) }),
         );
         if (reply.problem) throw new LocalizedError(reply.problem);
         const text = textFromModelOutput(reply.text);

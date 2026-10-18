@@ -2,7 +2,7 @@
 // Its protocol with the parent matches the macOS version (native/main.swift) exactly, so the parent (src/app/helper.mjs) doesn't branch on the system:
 //
 //	stdout  {"event":"ready","listen":true,"trusted":true,"capture":true}
-//	          {"event":"hotkey","down":true}
+//	          {"event":"hotkey","down":true,"app":"OUTLOOK"}  a press carries the foreground app's executable name
 //	          {"event":"other_key"}
 //	        {"event":"pasted","id":1,"ok":true}     with ok false the text stays in the clipboard, and reason says why
 //	          {"event":"escape"}
@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 )
 
 // A screen region: one button on the floating bar. Coordinates are physical screen pixels, matching what the low-level mouse hook reports
@@ -80,6 +81,16 @@ func parseRegions(raw json.RawMessage) ([]region, error) {
 
 // One line of event for the parent
 type event map[string]any
+
+// appName is the app named by an executable path: the file name without its folder or .exe ("C:\...\OUTLOOK.EXE" is "OUTLOOK").
+// Cleanup adjusts its tone to it; only the executable's name is sent, never the window title, which a web page could set
+func appName(path string) string {
+	name := path[strings.LastIndexAny(path, "\\/")+1:]
+	if strings.HasSuffix(strings.ToLower(name), ".exe") {
+		name = name[:len(name)-len(".exe")]
+	}
+	return name
+}
 
 func encodeEvent(e event) []byte {
 	line, err := json.Marshal(e)

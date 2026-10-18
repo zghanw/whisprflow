@@ -39,8 +39,10 @@ window.whisprflow.onLocaleChanged((locale) => {
 });
 
 let state = initialState;
-/** The dictation in progress: { audioId, recording, cancelled } */
+/** The dictation in progress: { audioId, recording, cancelled, app } */
 let session = null;
+/** The app in front at the latest hotkey press (the key helper names it): where the text will go */
+let appAtPress = null;
 let holdTimer = null;
 let maxDurationTimer = null;
 
@@ -67,7 +69,7 @@ const ACTIONS = {
 const describe = problemOf;
 
 function start() {
-  const current = { audioId: crypto.randomUUID(), recording: null, cancelled: false };
+  const current = { audioId: crypto.randomUUID(), recording: null, cancelled: false, app: appAtPress };
   session = current;
   (async () => {
     await voice.begin(current.audioId);
@@ -116,7 +118,10 @@ async function stop() {
       voice.abandon();
       throw new LocalizedError(msg("bar.noSignal"));
     }
-    const { text, notice: skipped } = await voice.finish({ durationSeconds: recorded.durationSeconds });
+    const { text, notice: skipped } = await voice.finish({
+      durationSeconds: recorded.durationSeconds,
+      app: current.app,
+    });
     const { notice } = await window.whisprflow.deliver({
       audioId: current.audioId,
       text,
@@ -154,6 +159,7 @@ const INPUT_EVENTS = {
 };
 
 window.whisprflow.onInput((event) => {
+  if (event.event === "hotkey" && event.down) appAtPress = event.app ?? null;
   const type = Object.hasOwn(INPUT_EVENTS, event.event) ? INPUT_EVENTS[event.event](event) : undefined;
   if (type === undefined) {
     console.warn("Unknown input event", event);

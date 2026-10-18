@@ -34,15 +34,16 @@ var (
 	procGetForegroundWindow     = user32.NewProc("GetForegroundWindow")
 	procGetWindowThreadProcess  = user32.NewProc("GetWindowThreadProcessId")
 
-	procGetModuleHandleW  = kernel32.NewProc("GetModuleHandleW")
-	procGlobalAlloc       = kernel32.NewProc("GlobalAlloc")
-	procGlobalFree        = kernel32.NewProc("GlobalFree")
-	procGlobalLock        = kernel32.NewProc("GlobalLock")
-	procGlobalUnlock      = kernel32.NewProc("GlobalUnlock")
-	procGlobalSize        = kernel32.NewProc("GlobalSize")
-	procOpenProcess       = kernel32.NewProc("OpenProcess")
-	procCloseHandle       = kernel32.NewProc("CloseHandle")
-	procGetCurrentProcess = kernel32.NewProc("GetCurrentProcess")
+	procGetModuleHandleW   = kernel32.NewProc("GetModuleHandleW")
+	procGlobalAlloc        = kernel32.NewProc("GlobalAlloc")
+	procGlobalFree         = kernel32.NewProc("GlobalFree")
+	procGlobalLock         = kernel32.NewProc("GlobalLock")
+	procGlobalUnlock       = kernel32.NewProc("GlobalUnlock")
+	procGlobalSize         = kernel32.NewProc("GlobalSize")
+	procOpenProcess        = kernel32.NewProc("OpenProcess")
+	procCloseHandle        = kernel32.NewProc("CloseHandle")
+	procGetCurrentProcess  = kernel32.NewProc("GetCurrentProcess")
+	procQueryFullImageName = kernel32.NewProc("QueryFullProcessImageNameW")
 
 	procOpenProcessToken    = advapi32.NewProc("OpenProcessToken")
 	procGetTokenInformation = advapi32.NewProc("GetTokenInformation")
@@ -199,4 +200,29 @@ func foregroundBlocksInput() bool {
 	}
 	defer procCloseHandle.Call(process)
 	return processElevated(process)
+}
+
+// The app the foreground window belongs to, by its executable's name ("OUTLOOK", "slack"); empty when it can't be read.
+// Only these few fast calls: it runs inside the keyboard hook, which must return quickly
+func foregroundApp() string {
+	window, _, _ := procGetForegroundWindow.Call()
+	if window == 0 {
+		return ""
+	}
+	var pid uint32
+	procGetWindowThreadProcess.Call(window, uintptr(unsafe.Pointer(&pid)))
+	if pid == 0 {
+		return ""
+	}
+	process, _, _ := procOpenProcess.Call(processQueryLimitedInformation, 0, uintptr(pid))
+	if process == 0 {
+		return ""
+	}
+	defer procCloseHandle.Call(process)
+	path := make([]uint16, 1024)
+	size := uint32(len(path))
+	if ok, _, _ := procQueryFullImageName.Call(process, 0, uintptr(unsafe.Pointer(&path[0])), uintptr(unsafe.Pointer(&size))); ok == 0 {
+		return ""
+	}
+	return appName(syscall.UTF16ToString(path[:size]))
 }

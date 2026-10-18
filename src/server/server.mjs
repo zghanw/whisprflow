@@ -101,7 +101,7 @@ function handleConnection(socket, { refiner, log, maxAudioBytes }) {
         const finished = requireSession(message.audioId);
         session = null;
         // Refining waits a second or two on the model; it must not block later messages on this connection
-        finish(finished).catch((error) => failConnection(error));
+        finish(finished, message.app).catch((error) => failConnection(error));
         break;
       }
     }
@@ -112,7 +112,7 @@ function handleConnection(socket, { refiner, log, maxAudioBytes }) {
     send(ServerType.CHUNK_RECEIVED, { index, server_t: Date.now(), size });
   };
 
-  const finish = async (finished) => {
+  const finish = async (finished, app = null) => {
     const context = { audio_id: finished.audioId, chunks: finished.chunkCount, bytes: finished.totalBytes };
     if (finished.chunkCount === 0) {
       log.warn("no_audio", context);
@@ -139,6 +139,7 @@ function handleConnection(socket, { refiner, log, maxAudioBytes }) {
         mimeType: finished.mimeType,
         signal: abort.signal,
         audioId: finished.audioId,
+        app,
       });
       // The local path also returns { text, notice } when cleanup was skipped
       const { text: refinedText, notice = null } = typeof result === "string" ? { text: result } : result;

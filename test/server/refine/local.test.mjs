@@ -53,7 +53,7 @@ test("recording, common format, local transcription, cleanup; the same interface
   assert.equal(await refiner.refine(audio, { mimeType: "audio/webm", signal, audioId: "a1" }), "Final: raw text");
   assert.deepEqual(seen.decoded, [{ audio, mimeType: "audio/webm" }]);
   assert.equal(seen.transcribed[0], SAMPLES);
-  assert.deepEqual(seen.polished, [{ text: "raw text", options: { signal, audioId: "a1" } }]);
+  assert.deepEqual(seen.polished, [{ text: "raw text", options: { signal, audioId: "a1", app: null } }]);
   await refiner.prepare();
   await refiner.warmUp();
   assert.equal(polisher.warmUps, 1);

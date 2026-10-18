@@ -5,6 +5,8 @@
 /** A 3-second chunk measured 14 to 15 KB; plenty of headroom here, also the WebSocket frame limit */
 export const MAX_CHUNK_BYTES = 256 * 1024;
 const MAX_AUDIO_ID_LENGTH = 128;
+/** An app name longer than this isn't a name: dropped rather than put in a prompt */
+const MAX_APP_LENGTH = 80;
 
 export const ClientType = Object.freeze({
   START: "start_audio",
@@ -44,6 +46,12 @@ function audioIdOf(message) {
   return id;
 }
 
+/** The app the text goes into (an executable or app name from the key helper), for cleanup's tone. Optional: anything odd is dropped, never an error */
+function appOf(message) {
+  const app = typeof message.app === "string" ? message.app.replace(/[\r\n\t]/g, " ").trim() : "";
+  return app.length > 0 && app.length <= MAX_APP_LENGTH ? app : null;
+}
+
 function positiveInteger(message, field, max) {
   const value = message[field];
   if (!Number.isInteger(value) || value < 1 || value > max) {
@@ -64,7 +72,7 @@ const PARSERS = new Map([
       size: positiveInteger(message, "size", MAX_CHUNK_BYTES),
     }),
   ],
-  [ClientType.END, (message) => ({ type: ClientType.END, audioId: audioIdOf(message) })],
+  [ClientType.END, (message) => ({ type: ClientType.END, audioId: audioIdOf(message), app: appOf(message) })],
 ]);
 
 /** Parses and validates a text message, keeping only the fields the server uses */

@@ -9,22 +9,27 @@
 /** What the model outputs when there is nothing to type; the server turns it into an empty string */
 export const NO_SPEECH_MARK = "<no speech>";
 
+/** Light per-app tone, used when the app being typed into is known (cleanup only): the wording itself never changes */
+const TONE_RULE =
+  "- Tone: in chat apps (Slack, Discord, Teams, WhatsApp, Messages) you may use contractions and a relaxed punctuation style; in email (Outlook, Mail, Thunderbird) keep punctuation a bit more formal. Nothing else about the wording changes.";
+
 /**
- * The editing rules both prompts share. terms is the user's dictionary (storage/dictionary.mjs): names and jargon spelled the way the user wants,
- * which speech models tend to get wrong
- * @param {string[]} [terms]
+ * The editing rules both prompts share.
+ * @param {string[]} [terms] the user's dictionary (storage/dictionary.mjs): names and jargon spelled the way the user wants, which speech models tend to get wrong
+ * @param {{ tone?: boolean }} [options] tone: the app being typed into is known, so tone may follow it lightly
  */
-export const editingRules = (terms = []) => `Copy the speech nearly verbatim, making ONLY these minimal edits:
-- Remove filler words (um, uh, you know, like) and false starts.
-- Apply the speaker's explicit self-corrections, keeping only the final intent ("meet at 2pm actually make it 3" becomes "meet at 3pm").
-- Fix punctuation, capitalization, and clear grammar slips.
-- If the speaker enumerates items, format them as a list.${
-  terms.length > 0
-    ? `
-- Prefer these spellings for names and jargon: ${terms.join(", ")}.`
-    : ""
+export function editingRules(terms = [], { tone = false } = {}) {
+  return [
+    "Copy the speech nearly verbatim, making ONLY these minimal edits:",
+    "- Remove filler words (um, uh, you know, like) and false starts.",
+    `- Apply the speaker's explicit self-corrections, keeping only the final intent ("meet at 2pm actually make it 3" becomes "meet at 3pm").`,
+    "- Fix punctuation, capitalization, and clear grammar slips.",
+    "- If the speaker enumerates items, format them as a list.",
+    ...(terms.length > 0 ? [`- Prefer these spellings for names and jargon: ${terms.join(", ")}.`] : []),
+    ...(tone ? [TONE_RULE] : []),
+    `Never paraphrase, reword${tone ? " (beyond contractions)" : ""}, restructure, shorten, or expand. Every word you keep must be the speaker's own. Keep the speaker's language; do not translate.`,
+  ].join("\n");
 }
-Never paraphrase, reword, restructure, shorten, or expand. Every word you keep must be the speaker's own. Keep the speaker's language; do not translate.`;
 
 export const EDITING_RULES = editingRules();
 

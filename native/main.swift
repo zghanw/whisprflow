@@ -4,7 +4,7 @@
 // Talks to the parent with one JSON object per line:
 //   stdout    {"event":"ready","listen":true,"trusted":true,"capture":true}
 //                                                               startup done, with the two permission states; capture: whether esc and clicks can be captured
-//             {"event":"hotkey","down":true}                    hotkey pressed / released
+//             {"event":"hotkey","down":true,"app":"Mail"}       hotkey pressed / released; a press carries the frontmost app's name
 //             {"event":"other_key"}                             another key while the hotkey is held (a combination, not dictation)
 //             {"event":"pasted","id":1,"ok":true}               pasted; with ok false the text stays in the clipboard
 //             {"event":"escape"}                                esc pressed while capturing
@@ -136,7 +136,10 @@ let onKeyEvent: CGEventTapCallBack = { _, type, event, _ in
         if down != hotkeyIsDown {
             hotkeyIsDown = down
             reportedOtherKey = false
-            emit(["event": "hotkey", "down": down])
+            var report: [String: Any] = ["event": "hotkey", "down": down]
+            // The app the text will go into: cleanup adjusts its tone to it. Its name only, never a window title
+            if down, let app = NSWorkspace.shared.frontmostApplication?.localizedName { report["app"] = app }
+            emit(report)
         }
     case .keyDown:
         reportOtherKeyIfHeld()

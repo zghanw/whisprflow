@@ -133,3 +133,18 @@ test("after abandoning a recording, its late result isn't counted toward the nex
   releases[1]();
   assert.equal((await second).text, "7");
 });
+
+test("the app the text goes into reaches cleanup with the recording", async () => {
+  const seen = [];
+  const socket = await start(async (_audio, options) => {
+    seen.push(options.app);
+    return "done";
+  });
+  await socket.begin("a1");
+  socket.sendChunk(webm("x"));
+  await socket.finish({ durationSeconds: 1, app: "OUTLOOK" });
+  await socket.begin("a2");
+  socket.sendChunk(webm("x"));
+  await socket.finish({ durationSeconds: 1 });
+  assert.deepEqual(seen, ["OUTLOOK", null]);
+});

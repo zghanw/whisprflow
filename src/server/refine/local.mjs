@@ -61,7 +61,7 @@ export function createLocalRefiner({ transcriber, polisher, log, model, onCall =
     /** Nothing to prepare when speaking starts: the model stays loaded in the transcriber process */
     async prepare() {},
 
-    async refine(audio, { mimeType, signal, audioId = null }) {
+    async refine(audio, { mimeType, signal, audioId = null, app = null }) {
       const startedAt = performance.now();
       let samples;
       try {
@@ -99,7 +99,7 @@ export function createLocalRefiner({ transcriber, polisher, log, model, onCall =
       let refined;
       let notice = null;
       try {
-        refined = await polisher.polish(transcript, { signal, audioId });
+        refined = await polisher.polish(transcript, { signal, audioId, app });
       } catch (error) {
         if (signal?.aborted) throw error;
         log.warn("polish_skipped", {

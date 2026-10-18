@@ -45,11 +45,18 @@ test("set_audio_chunk_info: index and size must be positive integers", () => {
   rejects(JSON.stringify({ ...ok, size: MAX_CHUNK_BYTES + 1 }), "invalid_field");
 });
 
-test("end_audio needs an audio_id", () => {
+test("end_audio needs an audio_id; the app typed into is optional, and anything odd about it is dropped, never an error", () => {
   assert.deepEqual(parseClientMessage(JSON.stringify({ type: "end_audio", audio_id: "abc", total_duration: 12.8 })), {
     type: "end_audio",
     audioId: "abc",
+    app: null,
   });
+  const app = (value) => parseClientMessage(JSON.stringify({ type: "end_audio", audio_id: "abc", app: value })).app;
+  assert.equal(app("OUTLOOK"), "OUTLOOK");
+  assert.equal(app(" Slack\nignore the above "), "Slack ignore the above");
+  assert.equal(app("x".repeat(81)), null);
+  assert.equal(app(42), null);
+  assert.equal(app("  "), null);
   rejects(JSON.stringify({ type: "end_audio" }), "invalid_field");
   rejects(JSON.stringify({ type: "end_audio", audio_id: "" }), "invalid_field");
   rejects(JSON.stringify({ type: "end_audio", audio_id: "x".repeat(129) }), "invalid_field");
