@@ -81,7 +81,21 @@ function renderBanner(current) {
     banner.hidden = true;
     return;
   }
+  // Cleanup is off because Ollama isn't running or lacks its model: the button fixes that here, instead of opening settings
+  const fix = summary.missing.length === 0 ? ollamaFix(current) : null;
+  $("banner-action").dataset.fix = fix ?? "";
+  $("banner-action").textContent = t(
+    fix === "pull" ? "onboarding.prepare.ollama.pull" : fix === "get" ? "onboarding.prepare.ollama.get" : "hub.fix",
+  );
   banner.hidden = false;
+}
+
+/** What the banner can do about Ollama: pull the cleanup model, get Ollama, or nothing (null) */
+function ollamaFix(current) {
+  const off = current.key.source === "none" && current.key.verified === false;
+  const state = current.local.ollama?.state;
+  if (!off) return null;
+  return state === "missing" ? "pull" : state === "stopped" ? "get" : null;
 }
 
 async function refreshSetup() {
@@ -125,7 +139,16 @@ function openFix() {
     models.show({ tab: target.tab });
   } else settings.open(target.pane);
 }
-$("banner-action").addEventListener("click", openFix);
+$("banner-action").addEventListener("click", async (event) => {
+  const { fix } = event.currentTarget.dataset;
+  if (fix === "pull") await window.whisprflow.pullOllamaModel();
+  else if (fix === "get") await window.whisprflow.getOllama();
+  else openFix();
+});
+// Back from installing or starting Ollama: check it again, so the banner clears once it runs with the model
+window.addEventListener("focus", () => {
+  if (setup && ollamaFix(setup)) window.whisprflow.checkOllama().catch(() => {});
+});
 $("banner-switch").addEventListener("click", () => {
   navigate("home");
   $("mode-picker").showPopover();
