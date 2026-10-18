@@ -199,22 +199,25 @@ export async function startService({
      *   allowUnverified: enable it anyway when the vendor is only temporarily unreachable. Used at startup and after route changes with a stored key: it was verified when saved,
      *   and shouldn't be judged unusable because the network was down at boot or the vendor briefly answered 503.
      *   keys: the other vendor's key when the route needs two (cloud step one, cleanup by another vendor), by vendor id
-     * @returns {Promise<{ verified: boolean, stale?: true }>} verified false means in use but not yet verified
+     * @returns {Promise<{ verified: boolean, problem?: object | string, stale?: true }>} verified false means in use but not yet verified,
+     *   and problem says why (the vendor was unreachable)
      */
     async useKey(apiKey, { allowUnverified = false, keys } = {}) {
       const at = switches;
       const candidate = await build(route, apiKey, keys);
       let verified = true;
+      let problem;
       try {
         await candidate.warmUp();
       } catch (error) {
         if (!allowUnverified || error.kind !== "unavailable") throw error;
         verified = false;
+        problem = error.problem;
       }
       if (switches !== at) return { verified, stale: true };
       refiner = candidate;
       missing = null;
-      return { verified };
+      return verified ? { verified } : { verified, problem };
     },
 
     /**

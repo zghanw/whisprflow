@@ -9,6 +9,8 @@ import { ModelError } from "../providers/errors.mjs";
 // this file only chains them in order.
 // Each step is billed separately: the polisher records cleanup (cost, tokens), on-device transcription is recorded here (provider local, no cost),
 // so usage shows which step each dictation's time went to and where the money went.
+// When cleanup fails (Ollama not running, a timeout, a rejected key), what was heard is still delivered, with a notice saying cleanup was skipped:
+// a dictation is never lost to step two.
 
 /**
  * @param {object} options
@@ -21,6 +23,7 @@ import { ModelError } from "../providers/errors.mjs";
  *   Left out when step one is a cloud model: it records its own billing (cost by duration or tokens)
  * @param {(record: object) => void} [options.onCall] billing, same shape as onCall in meter.mjs
  * @param {typeof toSpeech} [options.decode] replaced by a fake in tests
+ * @returns refine resolves to the text, or { text, notice } when cleanup was skipped (notice is a msg for the user)
  */
 export function createLocalRefiner({ transcriber, polisher, log, model, onCall = () => {}, decode = toSpeech }) {
   /** Failures outside the two steps (undecodable recording, local transcription error) are ModelErrors too, so the server tells the user the same way */
@@ -93,7 +96,20 @@ export function createLocalRefiner({ transcriber, polisher, log, model, onCall =
       }
       // The user disconnected during transcription: cleanup costs money, so don't send it
       signal?.throwIfAborted();
-      const refined = await polisher.polish(transcript, { signal, audioId });
+      let refined;
+      let notice = null;
+      try {
+        refined = await polisher.polish(transcript, { signal, audioId });
+      } catch (error) {
+        if (signal?.aborted) throw error;
+        log.warn("polish_skipped", {
+          audio_id: audioId,
+          kind: error?.kind,
+          error: String(error?.detail ?? error).slice(0, 300),
+        });
+        refined = transcript.trim();
+        notice = msg("local.cleanupSkipped", { reason: error?.problem ?? String(error?.message ?? error) });
+      }
       // Log only lengths and timings: the transcript and result are what the user said
       log.info("local_refined", {
         audio_id: audioId,
@@ -103,7 +119,7 @@ export function createLocalRefiner({ transcriber, polisher, log, model, onCall =
         polish_ms: Math.round(performance.now() - transcribedAt),
         transcript_length: transcript.length,
       });
-      return refined;
+      return notice ? { text: refined, notice } : refined;
     },
   };
 }

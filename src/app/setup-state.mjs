@@ -75,9 +75,15 @@ export function summarizeSetup({ key, permissions, helper, providerName = "Gemin
     ready: blocker === null && permissions.listen === true,
     missing,
     blocker,
-    degraded: permissions.trusted === false ? msg("setup.degraded") : null,
+    degraded: cleanupOff(key) ?? (permissions.trusted === false ? msg("setup.degraded") : null),
   };
 }
+
+/** Cleanup on this computer (Ollama) isn't working yet: dictation still pastes what was heard, so it's a limitation, not a blocker */
+const cleanupOff = (key) =>
+  key.state === "ready" && key.source === "none" && key.verified === false && key.problem
+    ? msg("setup.cleanupOff", { problem: key.problem })
+    : null;
 
 /**
  * The shape for the CLI: every sentence in the summary translated to text in t's language. CLI and status --json readers

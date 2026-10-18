@@ -35,7 +35,8 @@ export const CHAT_VENDORS = Object.freeze([
     baseUrl: "http://localhost:11434/v1",
     defaultModel: "qwen3:4b-instruct",
     models: models([{ id: "qwen3:4b-instruct", name: "Qwen3 4B Instruct", maker: "qwen", tested: true }]),
-    request: Object.freeze({}),
+    // Cleanup should be the same every time: no sampling randomness
+    request: Object.freeze({ temperature: 0 }),
     // Free: the model runs locally
     prices: null,
   }),

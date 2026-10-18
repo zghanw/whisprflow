@@ -37,9 +37,22 @@ test("start, send chunks in order, finish, get the result; the server receives t
   // The first chunk is deliberately larger: reading its bytes is slower, so without a queue the second would jump ahead
   socket.sendChunk(webm("A".repeat(200_000)));
   socket.sendChunk(new Blob(["BBB"]));
-  assert.equal(await socket.finish({ durationSeconds: 4.2 }), "result");
+  assert.deepEqual(await socket.finish({ durationSeconds: 4.2 }), { text: "result", notice: null });
   assert.equal(received.mimeType, "audio/webm");
   assert.ok(received.text.endsWith(`${"A".repeat(10)}BBB`));
+});
+
+test("a notice about the result (cleanup skipped) comes through for the bar to show", async () => {
+  const notice = msg("local.cleanupSkipped", { reason: msg("model.localNotRunning", { provider: "Ollama" }) });
+  const socket = await start(async () => ({ text: "raw words", notice }));
+  await socket.begin("a1");
+  socket.sendChunk(webm("x"));
+  const result = await socket.finish({ durationSeconds: 1 });
+  assert.equal(result.text, "raw words");
+  assert.equal(
+    en.text(result.notice),
+    "Cleanup skipped, pasted what was heard: Ollama isn't running. Start it, or install it from ollama.com",
+  );
 });
 
 test("two in a row on the same connection", async () => {
@@ -47,7 +60,7 @@ test("two in a row on the same connection", async () => {
   for (const audioId of ["a1", "a2"]) {
     await socket.begin(audioId);
     socket.sendChunk(webm("xy"));
-    assert.equal(await socket.finish({ durationSeconds: 1 }), "6");
+    assert.equal((await socket.finish({ durationSeconds: 1 })).text, "6");
   }
 });
 
@@ -118,5 +131,5 @@ test("after abandoning a recording, its late result isn't counted toward the nex
   releases[0]();
   await new Promise((resolve) => setTimeout(resolve, 20));
   releases[1]();
-  assert.equal(await second, "7");
+  assert.equal((await second).text, "7");
 });

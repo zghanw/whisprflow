@@ -474,7 +474,8 @@ export function createModels({ refresh, pickMode }) {
     }
     const offer = offerOf(role, group, item);
     const price = offer?.price;
-    if (offer?.free) return h("span", { class: "cell-end metric", role: "cell", "data-label": col.label, text: t("plaza.cols.free") });
+    if (offer?.free)
+      return h("span", { class: "cell-end metric", role: "cell", "data-label": col.label, text: t("plaza.cols.free") });
     if (!price || typeof price[col.field] !== "number") {
       return h("span", {
         class: "cell-end metric-none",

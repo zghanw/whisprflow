@@ -116,14 +116,15 @@ async function stop() {
       voice.abandon();
       throw new LocalizedError(msg("bar.noSignal"));
     }
-    const text = await voice.finish({ durationSeconds: recorded.durationSeconds });
+    const { text, notice: skipped } = await voice.finish({ durationSeconds: recorded.durationSeconds });
     const { notice } = await window.whisprflow.deliver({
       audioId: current.audioId,
       text,
       durationSeconds: recorded.durationSeconds,
       audio: await recorded.blob.arrayBuffer(),
     });
-    dispatch({ type: "RESULT", message: notice });
+    // A delivery notice (copied, press the paste keys) needs acting on, so it wins over a skipped cleanup
+    dispatch({ type: "RESULT", message: notice ?? skipped });
   } catch (error) {
     console.error("This dictation failed", error);
     const message = describe(error);

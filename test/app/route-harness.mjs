@@ -27,6 +27,8 @@ globalThis.fetch = async (url, init) => {
   requests.push({ url: String(url), key });
   if (!GOOD.has(key) && !String(url).startsWith(OLLAMA))
     return reply({ error: { code: "invalid_api_key", message: "Incorrect API key provided" } }, 401);
+  // Ollama's warm-up lists its models first: the default cleanup model is pulled
+  if (init.method === "GET") return reply({ object: "list", data: [{ id: "qwen3:4b-instruct", object: "model" }] });
   const body = JSON.parse(init.body);
   return reply({
     model: body.model,

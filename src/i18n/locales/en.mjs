@@ -140,6 +140,7 @@ export default {
     modelMissing:
       "The local model {model} isn't downloaded: download it on the Models page in Settings, or run whisprflow transcriber download {id}",
     undecodable: "Couldn't read the recording: {reason}",
+    cleanupSkipped: "Cleanup skipped, pasted what was heard: {reason}",
     transcribeFailed: "Local transcription failed: {reason}",
   },
   modelSources: {
@@ -214,6 +215,7 @@ export default {
       noMicrophone: "No microphone access: {where}",
     },
     degraded: "No Accessibility access: text goes to the clipboard, press ⌘V",
+    cleanupOff: "Cleanup is off for now, so dictation pastes what was heard: {problem}",
   },
 
   key: {
@@ -242,6 +244,8 @@ export default {
   model: {
     timeout: "{provider} took too long to reply. Try again later",
     unreachable: "Can't reach {provider}. Check your network",
+    localNotRunning: "{provider} isn't running. Start it, or install it from ollama.com",
+    notPulled: "{model} isn't downloaded in {provider} yet",
     keyInvalid: "This key is invalid. Check it was copied in full",
     unavailable: "{provider} is unavailable right now ({said}). Try again later",
     rejected: "{provider} rejected the request: {said}",

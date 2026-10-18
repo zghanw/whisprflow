@@ -90,7 +90,7 @@ export function createKeyManager({
   const described = (error, apiKey, who = provider, route = service?.route) => {
     const modelError = toModelError(error, { provider: who, apiKey });
     const other =
-      modelError.provider && modelError.provider !== who.id && route
+      modelError.provider && modelError.provider !== who?.id && route
         ? keyVendorsOf(route).find(({ id }) => id === modelError.provider)
         : null;
     const vendor = other ? { id: other.id, name: other.name } : null;
@@ -201,13 +201,19 @@ export function createKeyManager({
     });
   }
 
-  /** The route in use needs no key: ready once installed, with no key to verify. An undownloaded on-device model is the service's state (localModel), not a key matter */
+  /**
+   * The route in use needs no key: ready once installed. An undownloaded on-device model is the service's state (localModel), not a key matter.
+   * Cleanup on this computer (Ollama) that isn't running, or lacks its model, still installs: dictation pastes what was heard with a notice,
+   * and the state carries verified false with the reason until a later check passes (reverify)
+   */
   function adoptKeyless() {
     const version = routeVersion;
     return enqueue(async () => {
       if (version !== routeVersion) return;
+      let installed;
       try {
-        if ((await service.useKey(null)).stale || version !== routeVersion) return;
+        installed = await service.useKey(null, { allowUnverified: true });
+        if (installed.stale || version !== routeVersion) return;
       } catch (error) {
         if (version !== routeVersion) return;
         // A keyless route that can't be installed is most likely a bug: say so honestly
@@ -217,8 +223,9 @@ export function createKeyManager({
         return;
       }
       inUse = null;
-      log.info("key_ready", { provider: null, source: "none", verified: true });
-      become({ state: "ready", source: "none", problem: null });
+      const { verified, problem = null } = installed;
+      log.info("key_ready", { provider: null, source: "none", verified });
+      become({ state: "ready", source: "none", problem, ...(verified ? {} : { verified }) });
     });
   }
 
@@ -503,12 +510,19 @@ export function createKeyManager({
       try {
         await service.verify();
         if (current !== checked) return;
-        log.info("key_ready", { provider: provider.id, source: checked.source, verified: true });
-        become({ ...checked, verified: true });
+        log.info("key_ready", { provider: provider?.id ?? null, source: checked.source, verified: true });
+        become({ ...checked, verified: true, problem: null });
       } catch (error) {
-        const { cause, problem, detail, vendor } = described(error);
-        // Still unreachable: keep using it; if the state was changed elsewhere meanwhile (a new key saved, say), stay out of it
-        if (cause === "unavailable" || current !== checked) return;
+        const keyless = checked.source === "none";
+        const { cause, problem, detail, vendor } = keyless
+          ? described(error, null, { id: null, name: "WhisprFlow" })
+          : described(error);
+        // Still unreachable: keep using it, with the latest reason; if the state was changed elsewhere meanwhile (a new key saved, say), stay out of it
+        if (current !== checked) return;
+        if (cause === "unavailable") {
+          if (keyless) become({ ...checked, problem });
+          return;
+        }
         service.forgetKey(vendor ? { missing: vendor } : {});
         // When the other vendor's key is the wrong one, the key in use is fine and stays: once that vendor's key is saved, settle carries on
         if (!vendor) inUse = null;

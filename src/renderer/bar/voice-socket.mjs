@@ -85,7 +85,8 @@ export class VoiceSocket {
 
   /**
    * Ends recording and waits for the finished text.
-   * @returns {Promise<string>} an empty string when there was no speech
+   * @returns {Promise<{ text: string, notice: object | null }>} text is empty when there was no speech;
+   *   notice is something the user should know about this result (cleanup skipped), a msg
    */
   async finish({ durationSeconds, timeoutMs = REFINE_TIMEOUT_MS }) {
     const current = this.#current;
@@ -143,7 +144,7 @@ export class VoiceSocket {
     if (!current || (value.audio_id && value.audio_id !== current.audioId)) return;
     switch (kind) {
       case "audio_processing_completed":
-        current.settle?.resolve(value.refined_text);
+        current.settle?.resolve({ text: value.refined_text, notice: value.notice ?? null });
         break;
       case "audio_processing_error":
       case "error":

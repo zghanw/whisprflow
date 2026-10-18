@@ -122,7 +122,9 @@ test("at startup a key may be used before verification: also when Gemini answers
   };
   const service = await startService({ log: quietLog, route: GEMINI, createRefiner: () => fakeRefiner("text", busy) });
   t.after(() => service.close());
-  assert.deepEqual(await service.useKey("stored-key", { allowUnverified: true }), { verified: false });
+  const unverified = await service.useKey("stored-key", { allowUnverified: true });
+  assert.equal(unverified.verified, false);
+  assert.match(en.text(unverified.problem), /Gemini is unavailable right now/);
   assert.equal(service.ready, true);
 });
 
@@ -140,7 +142,9 @@ test("at startup a key may be used before verification: unable to reach Gemini, 
   await assert.rejects(service.useKey("stored-key"), said(/Can't reach/));
   assert.equal(service.ready, false);
 
-  assert.deepEqual(await service.useKey("stored-key", { allowUnverified: true }), { verified: false });
+  const unverified = await service.useKey("stored-key", { allowUnverified: true });
+  assert.equal(unverified.verified, false);
+  assert.equal(en.text(unverified.problem), "Can't reach Gemini. Check your network");
   assert.equal(service.ready, true);
   assert.equal((await dictateOnce(service.url)).V.refined_text, "connected later");
 });

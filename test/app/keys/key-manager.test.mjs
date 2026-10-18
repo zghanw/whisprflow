@@ -71,7 +71,7 @@ function fakeService(verdicts = {}) {
       const error = verdicts[apiKey]?.();
       if (error && !(allowUnverified && error.kind === "unavailable")) throw error;
       service.using = apiKey;
-      return { verified: !error };
+      return error ? { verified: false, problem: error.problem } : { verified: true };
     },
     /** Switches routes at once, dropping the key in hand (without verifying, like the real one) */
     setRoute(route) {
@@ -670,4 +670,24 @@ test("cleanup by Ollama needs no key: switching makes no vendor the one in use, 
   assert.equal(keys.provider, null);
   assert.deepEqual([keys.current.state, keys.current.source], ["ready", "none"]);
   assert.ok(!service.calls.some((call) => call.route === LOCAL_OLLAMA), JSON.stringify(service.calls));
+});
+
+test("cleanup by Ollama while it isn't running: installed anyway, ready but unverified with the reason; a later check that passes clears it", async () => {
+  let down = true;
+  const ollamaDown = () =>
+    down ? new ModelError({ kind: "unavailable", problem: "Ollama isn't running", detail: "fetch failed" }) : null;
+  const LOCAL_OLLAMA = { ...LOCAL_CUSTOM, polish: { vendor: "ollama", model: "qwen3:4b-instruct" }, customUrl: null };
+  const { keys, service } = setup({ stored: "gemini-key", verdicts: { null: ollamaDown } });
+  await keys.loadAtStartup();
+  assert.equal(await switched(keys, LOCAL_OLLAMA), true);
+  assert.deepEqual(service.calls.at(-1), { useKey: null, allowUnverified: true });
+  assert.deepEqual(
+    [keys.current.state, keys.current.verified, keys.current.problem],
+    ["ready", false, "Ollama isn't running"],
+  );
+  await keys.reverify();
+  assert.equal(keys.current.verified, false, "still down: stays unverified");
+  down = false;
+  await keys.reverify();
+  assert.deepEqual([keys.current.state, keys.current.verified, keys.current.problem], ["ready", true, null]);
 });

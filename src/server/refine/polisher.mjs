@@ -10,6 +10,8 @@ import { POLISH_PROMPT, polishInput } from "./polish-prompt.mjs";
 
 /** The longest one request may take. A small local model answers a sentence or two in about a second and a long paragraph in a few; plenty of headroom */
 const DEFAULT_TIMEOUT_MS = 30_000;
+/** The background warm-up of an on-device model: a cold load from disk, plus the one-time GPU kernel compile after an Ollama update, can take minutes */
+const PRIME_TIMEOUT_MS = 300_000;
 
 /**
  * @param {object} options
@@ -20,6 +22,8 @@ const DEFAULT_TIMEOUT_MS = 30_000;
  * @param {string} [options.apiKey] only used to scrub it from error text
  * @param {(record: object) => void} [options.onCall] billing, see meter.mjs
  * @param {string} [options.prompt] the system prompt; replaceable to try out a candidate prompt
+ * @param {string | null} [options.localModel] set when the service runs on this computer (Ollama): the model it should have.
+ *   Warming up then checks the service is running with that model, and loads it with one real cleanup in the background
  * @returns {{ warmUp(): Promise<void>, polish(transcript: string, o: { signal?: AbortSignal, audioId?: string }): Promise<string> }}
  *   every error thrown is a ModelError
  */
@@ -32,6 +36,7 @@ export function createPolisher({
   log,
   onCall = () => {},
   prompt = POLISH_PROMPT,
+  localModel = null,
 }) {
   const described = (error) => toModelError(error, { provider: endpoint, apiKey, classify });
   const metered = createMeter({ provider: endpoint, log, onCall });
@@ -40,9 +45,37 @@ export function createPolisher({
     return signal ? AbortSignal.any([signal, timeout]) : timeout;
   };
 
+  /**
+   * An on-device service: listing its models shows whether it runs and has the model, without loading it. Then one real cleanup runs in the background,
+   * as v1 did: it loads the model and compiles what the first run needs, so the first dictation pays for neither. Not awaited, so verifying stays quick;
+   * a dictation meanwhile waits on the same load
+   */
+  async function warmUpLocal() {
+    try {
+      const listed = await client.listModels({ signal: AbortSignal.timeout(timeoutMs) });
+      // Ollama lists a model pulled without a tag as name:latest
+      if (!listed.some((id) => id === localModel || id === `${localModel}:latest`)) {
+        throw new LocalizedError(msg("model.notPulled", { provider: endpoint.name, model: localModel }));
+      }
+    } catch (error) {
+      const failure = described(error);
+      // Not pulled yet is a setup step, not a broken route: cleanup is skipped until it is (see local.mjs)
+      if (error instanceof LocalizedError) failure.kind = "unavailable";
+      throw failure;
+    }
+    const startedAt = performance.now();
+    client
+      .complete({ system: prompt, user: polishInput("warm up"), signal: AbortSignal.timeout(PRIME_TIMEOUT_MS) })
+      .then(
+        () => log.info("cleanup_primed", { provider: endpoint.id, ms: Math.round(performance.now() - startedAt) }),
+        (error) => log.warn("cleanup_prime_failed", { provider: endpoint.id, error: String(error?.message ?? error) }),
+      );
+  }
+
   return {
     /** Sends the smallest request on startup and key changes: a wrong key, address, or model name shows up here, and the first cleanup after it isn't slow */
     async warmUp() {
+      if (localModel) return warmUpLocal();
       try {
         await metered("check", null, () => client.ping({ signal: AbortSignal.timeout(timeoutMs) }));
       } catch (error) {
@@ -94,8 +127,10 @@ export async function createChatPolisher({ choice, customUrl = null, apiKey, tim
     costOf,
     ...(fetch ? { fetch } : {}),
   });
+  // Keyless vendors run on this computer (Ollama)
+  const local = vendor.keyEnv === null;
   return createPolisher({
-    endpoint: { id: vendor.id, name },
+    endpoint: { id: vendor.id, name, local },
     client,
     classify: (error) => protocol.classifyError(error, { name }),
     apiKey,
@@ -103,5 +138,6 @@ export async function createChatPolisher({ choice, customUrl = null, apiKey, tim
     log,
     onCall,
     prompt,
+    localModel: local ? choice.model : null,
   });
 }

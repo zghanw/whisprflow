@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { createTranslator } from "../../../src/i18n/index.mjs";
+import { createTranslator, msg } from "../../../src/i18n/index.mjs";
 import { ModelError } from "../../../src/server/providers/errors.mjs";
 import { createLocalRefiner } from "../../../src/server/refine/local.mjs";
 
@@ -86,11 +86,26 @@ test("local transcription error: a classified ModelError that names local transc
   assert.match(error.detail, /code 3/);
 });
 
-test("errors from cleanup pass through unchanged (already classified)", async () => {
-  const failure = new ModelError({ kind: "key", problem: { key: "model.keyInvalid" }, detail: "401" });
-  const { decode, transcriber, polisher } = parts({ polishError: failure });
-  const refiner = createLocalRefiner({ transcriber, polisher, log: recordingLog(), decode });
-  assert.equal(await refiner.refine(Buffer.from("x"), { mimeType: "audio/webm" }).catch((e) => e), failure);
+test("when cleanup fails, what was heard is delivered with a notice saying why, never lost", async () => {
+  const failure = new ModelError({
+    kind: "unavailable",
+    problem: msg("model.localNotRunning", { provider: "Ollama" }),
+    detail: "fetch failed",
+  });
+  const { decode, transcriber, polisher } = parts({ transcript: " raw text ", polishError: failure });
+  const log = recordingLog();
+  const refiner = createLocalRefiner({ transcriber, polisher, log, decode });
+  const { text, notice } = await refiner.refine(Buffer.from("x"), { mimeType: "audio/webm" });
+  assert.equal(text, "raw text");
+  assert.equal(
+    en.text(notice),
+    "Cleanup skipped, pasted what was heard: Ollama isn't running. Start it, or install it from ollama.com",
+  );
+  assert.ok(
+    log.events.some(
+      ({ level, event, kind }) => level === "warn" && event === "polish_skipped" && kind === "unavailable",
+    ),
+  );
 });
 
 test("an undecodable recording reports a ModelError instead of leaking the raw decoder error", async () => {

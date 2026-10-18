@@ -92,6 +92,7 @@ test("a complete dictation: message order and result fields as expected; refinin
     action: null,
     user_prompt: null,
     external_action: null,
+    notice: null,
   });
   assert.equal(completed.K, "audio_processing_completed");
 

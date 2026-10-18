@@ -54,7 +54,9 @@ export function toModelError(error, { provider, apiKey, classify }) {
     return make({ kind: "unavailable", problem: msg("model.timeout", { provider: provider.name }) });
   }
   if (unreachable(error, detail)) {
-    return make({ kind: "unavailable", problem: msg("model.unreachable", { provider: provider.name }) });
+    // A service on this computer that can't be reached isn't running; the network has nothing to do with it
+    const problem = msg(provider.local ? "model.localNotRunning" : "model.unreachable", { provider: provider.name });
+    return make({ kind: "unavailable", problem });
   }
   const specific = classify?.(error, detail);
   if (specific) return make(specific);

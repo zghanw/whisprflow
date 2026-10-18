@@ -336,7 +336,9 @@ async function main() {
     if (offeredSettings || !startupChecked || setup.key.state === "checking" || setup.permissions.listen === null)
       return;
     const summary = summarizeSetup(setup);
-    if (summary.missing.length === 0 && summary.degraded === null) return;
+    // Cleanup being off (Ollama not started) isn't worth a window at every launch: the menu bar and main window banner say it
+    const cleanupOff = setup.key.source === "none" && setup.key.verified === false;
+    if (summary.missing.length === 0 && (summary.degraded === null || cleanupOff)) return;
     offeredSettings = true;
     log.info("settings_offered", { missing: summary.missing, degraded: summary.degraded !== null });
     // The missing key belongs to the route's other vendor (the cloud step one): onboarding only knows the vendor in use, so entering it there would be wrong. Go to the key table on the model page
@@ -578,6 +580,8 @@ async function main() {
     // Log only the length: the result is what the user said and stays out of logs
     log.info("delivered", { audio_id: payload.audioId, text_length: payload.text.length, notice: result.notice });
     historyChanged();
+    // If cleanup was off (Ollama not running), check again now, so the note clears once it works. Does nothing otherwise
+    reverifyKeyInBackground();
     e2e?.onFinished({ delivered: payload.text, notice: result.notice });
     return result;
   });

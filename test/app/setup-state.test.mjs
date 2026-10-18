@@ -171,3 +171,22 @@ test("the summary for the CLI translates every sentence to text (the CLI and sta
     degraded: null,
   });
 });
+
+test("cleanup on this computer not working yet (Ollama not running): still ready, with a note that what was heard gets pasted", () => {
+  const summary = summarize(
+    withKey({
+      state: "ready",
+      source: "none",
+      verified: false,
+      problem: msg("model.localNotRunning", { provider: "Ollama" }),
+    }),
+  );
+  assert.equal(summary.ready, true);
+  assert.deepEqual(summary.missing, []);
+  assert.equal(
+    summary.degraded,
+    "Cleanup is off for now, so dictation pastes what was heard: Ollama isn't running. Start it, or install it from ollama.com",
+  );
+  // A keyed route used offline at startup isn't described this way: its key is unverified, not its cleanup
+  assert.equal(summarize(withKey({ state: "ready", source: "stored", verified: false })).degraded, null);
+});

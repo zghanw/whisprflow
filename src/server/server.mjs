@@ -135,11 +135,13 @@ function handleConnection(socket, { refiner, log, maxAudioBytes }) {
     refining.add(abort);
     const startedAt = performance.now();
     try {
-      const refinedText = await refiner.refine(finished.merge(), {
+      const result = await refiner.refine(finished.merge(), {
         mimeType: finished.mimeType,
         signal: abort.signal,
         audioId: finished.audioId,
       });
+      // The local path also returns { text, notice } when cleanup was skipped
+      const { text: refinedText, notice = null } = typeof result === "string" ? { text: result } : result;
       // Log only the length: the result is what the user said and doesn't belong in logs
       log.info("refined", {
         ...context,
@@ -157,6 +159,8 @@ function handleConnection(socket, { refiner, log, maxAudioBytes }) {
         action: null,
         user_prompt: null,
         external_action: null,
+        // Something the user should know about this result (cleanup skipped): a msg, translated by the bar
+        notice,
       });
     } catch (error) {
       if (abort.signal.aborted) {

@@ -158,3 +158,60 @@ test("createChatPolisher: custom uses the address from settings and names its ho
     /address/.test(en.text(e.problem)),
   );
 });
+
+/** A fake on-device service: lists models, records cleanups, and can refuse connections */
+function fakeLocalService({ models = ["qwen3:4b-instruct"], down = false } = {}) {
+  const requests = [];
+  const refused = () => Object.assign(new TypeError("fetch failed"), { cause: { code: "ECONNREFUSED" } });
+  const client = {
+    async listModels(request) {
+      requests.push({ list: request });
+      if (down) throw refused();
+      return models;
+    },
+    async complete(request) {
+      requests.push(request);
+      return { text: "Warm up.", problem: null, usage: USAGE };
+    },
+  };
+  return { client, requests };
+}
+
+const localPolisher = (client, events = []) =>
+  createPolisher({
+    endpoint: { id: "ollama", name: "Ollama", local: true },
+    client,
+    log: { ...quiet, info: (event) => events.push(event), warn: (event) => events.push(event) },
+    localModel: "qwen3:4b-instruct",
+  });
+
+test("on-device warm-up: checks the service runs with the model, then loads it with one real cleanup in the background", async () => {
+  const events = [];
+  const { client, requests } = fakeLocalService();
+  await localPolisher(client, events).warmUp();
+  assert.ok(requests[0].list, "lists models first, which doesn't load anything");
+  // The real cleanup goes out without being awaited
+  assert.equal(requests[1].user, polishInput("warm up"));
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.ok(events.includes("cleanup_primed"));
+});
+
+test("on-device warm-up: a model pulled without a tag counts (Ollama lists it as name:latest)", async () => {
+  const { client } = fakeLocalService({ models: ["qwen3:4b-instruct:latest"] });
+  await localPolisher(client).warmUp();
+});
+
+test("on-device warm-up: a model not pulled yet, or the service not running, is unavailable (cleanup is skipped), with a clear reason", async () => {
+  const notPulled = await localPolisher(fakeLocalService({ models: ["llama3:latest"] }).client)
+    .warmUp()
+    .catch((error) => error);
+  assert.ok(notPulled instanceof ModelError);
+  assert.equal(notPulled.kind, "unavailable");
+  assert.equal(en.text(notPulled.problem), "qwen3:4b-instruct isn't downloaded in Ollama yet");
+
+  const down = await localPolisher(fakeLocalService({ down: true }).client)
+    .warmUp()
+    .catch((error) => error);
+  assert.equal(down.kind, "unavailable");
+  assert.equal(en.text(down.problem), "Ollama isn't running. Start it, or install it from ollama.com");
+});
