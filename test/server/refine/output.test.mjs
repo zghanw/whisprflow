@@ -25,3 +25,10 @@ test("echoed transcript tags and quotes around the whole answer are removed; quo
   assert.equal(textFromModelOutput('She said "ship it" today.'), 'She said "ship it" today.');
   assert.equal(textFromModelOutput('"'), '"');
 });
+
+test("spaces at the ends of lines (Markdown line breaks after list items) are removed, the lines kept", () => {
+  assert.equal(
+    textFromModelOutput("- Update the docs  \n- Fix the login bug  \n- Ship the release"),
+    "- Update the docs\n- Fix the login bug\n- Ship the release",
+  );
+});

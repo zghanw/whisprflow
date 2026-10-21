@@ -230,3 +230,27 @@ test("an error written as a plain string (as Ollama does) still yields its messa
 test("errors this adapter didn't throw are not recognized", () => {
   assert.equal(classifyError(new Error("something else"), { name: "Example" }), null);
 });
+
+test("examples go before the real message as earlier turns of the conversation", async () => {
+  const { fetch, requests } = fakeFetch(200, completion("Done."));
+  const client = createClient({ baseUrl: BASE, apiKey: "sk-test", model: "example-chat", fetch });
+  await client.complete({
+    system: "rules",
+    examples: [
+      { user: "<transcript>uh hi</transcript>", assistant: "Hi." },
+      { user: "<transcript>ok bye</transcript>", assistant: "OK, bye." },
+    ],
+    user: "<transcript>real one</transcript>",
+  });
+  assert.deepEqual(
+    requests[0].body.messages.map(({ role, content }) => `${role}: ${content}`),
+    [
+      "system: rules",
+      "user: <transcript>uh hi</transcript>",
+      "assistant: Hi.",
+      "user: <transcript>ok bye</transcript>",
+      "assistant: OK, bye.",
+      "user: <transcript>real one</transcript>",
+    ],
+  );
+});

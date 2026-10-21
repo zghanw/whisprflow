@@ -14,18 +14,29 @@ const LEARN_TIMEOUT_MS = 30_000;
 export const learnPrompt = (known) =>
   `From the text the user sends, list proper nouns, acronyms, brand or product names, and technical jargon that a speech-to-text system might misspell, one per line, nothing else. If there are none, output nothing. Exclude everyday words and these already-known terms: ${known.length > 0 ? known.join(", ") : "(none)"}`;
 
+/** Where a sentence or a list item starts: everyday words are capitalized there too, so a capital proves nothing */
+const SENTENCE_START = /(?:^|[.!?:]\s+|\n[\s\-*\u2022]*)$/;
+
 /**
- * The model's lines as candidate terms: list marks stripped, kept only if they occur in the text and carry a capital letter.
- * A digit alone isn't enough: times and amounts ("3pm", "10km") come back as candidates, while names with digits ("Qwen3", "GPT-4o") have a capital
+ * Whether a term reads as a name in the text, which cleanup has already capitalized. It must appear there exactly as written, and either carry
+ * a capital or a digit past its first letter (API, PostgreSQL, Qwen3, iPhone), or appear at least once mid-sentence, where a capital means a name (Heroku).
+ * Words capitalized only because they start a sentence or a list item ("Tickets") don't count, nor do times and amounts ("3pm")
  */
+function readsAsName(term, text) {
+  if (!/\p{Lu}/u.test(term) || !text.includes(term)) return false;
+  if (/[\p{Lu}\p{N}]/u.test(term.slice(1))) return true;
+  for (let at = text.indexOf(term); at !== -1; at = text.indexOf(term, at + 1)) {
+    if (!SENTENCE_START.test(text.slice(0, at))) return true;
+  }
+  return false;
+}
+
+/** The model's lines as candidate terms: list marks stripped, kept only if they read as a name in the text */
 export function termsFrom(output, text) {
-  const lower = text.toLowerCase();
   return String(output ?? "")
     .split(/\r?\n/)
     .map((line) => line.replace(/^[\s\-*\u2022]+|[\s\-*\u2022]+$/g, ""))
-    .filter(
-      (term) => term.length > 1 && term.length <= 40 && lower.includes(term.toLowerCase()) && /\p{Lu}/u.test(term),
-    );
+    .filter((term) => term.length > 1 && term.length <= 40 && readsAsName(term, text));
 }
 
 /**

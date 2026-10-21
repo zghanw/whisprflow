@@ -64,6 +64,8 @@ export function createModels({ refresh, pickMode }) {
   };
 
   const platformOf = (id) => setup.plaza.platforms.find((platform) => platform.id === id) ?? null;
+  /** Platforms that take a key: those on this computer (Ollama) don't, and never appear in the key table */
+  const keyedPlatforms = () => setup.plaza.platforms.filter(({ keyEnv }) => keyEnv !== null);
   const privateNow = () => setup.plaza.mode === "private";
   /** Which setting holds this role's current choice: in private mode transcription has its own */
   const settingOf = (role) => (role === "transcribe" && privateNow() ? "privateTranscriber" : ROLES[role].setting);
@@ -71,7 +73,11 @@ export function createModels({ refresh, pickMode }) {
   /** Which recognition mode enabling this row needs: enabling an on-device model in private mode stays in it, others follow the role */
   const modeFor = (role, group) =>
     role === "transcribe" && privateNow() && group.kind === "local" ? "private" : ROLES[role].mode;
-  const hasKey = (id) => Boolean(platformOf(id)?.key);
+  /** Whether a platform can be used as far as keys go: it has one, or it runs on this computer and takes none (Ollama) */
+  const hasKey = (id) => {
+    const platform = platformOf(id);
+    return platform?.keyEnv === null || Boolean(platform?.key);
+  };
   const modeName = (mode) => t(`plaza.modes.${mode}`);
 
   // ---------- Channels, availability ----------
@@ -218,7 +224,7 @@ export function createModels({ refresh, pickMode }) {
   // ---------- Categories, filters ----------
 
   const shelfCount = (role) => setup.plaza.shelves[role].reduce((sum, group) => sum + group.items.length, 0);
-  const keyCount = () => setup.plaza.platforms.filter(({ key }) => key).length;
+  const keyCount = () => keyedPlatforms().filter(({ key }) => key).length;
 
   function renderTabs() {
     const icons = { native: "i-sparkles", transcribe: "i-audio-lines", polish: "i-wand-sparkles", keys: "i-key-round" };
@@ -226,7 +232,7 @@ export function createModels({ refresh, pickMode }) {
       native: String(shelfCount("native")),
       transcribe: String(shelfCount("transcribe")),
       polish: String(shelfCount("polish")),
-      keys: `${keyCount()}/${setup.plaza.platforms.length}`,
+      keys: `${keyCount()}/${keyedPlatforms().length}`,
     };
     $("plaza-tabs").replaceChildren(
       h("span", { class: "indicator", "aria-hidden": "true" }),
@@ -987,7 +993,7 @@ export function createModels({ refresh, pickMode }) {
 
   function renderKeys(root) {
     const cols = [{ label: t("plaza.cols.key"), width: "8.5rem", start: true }];
-    const rows = setup.plaza.platforms.map((platform) => {
+    const rows = keyedPlatforms().map((platform) => {
       const filled = Boolean(platform.key);
       const open = state.openKey === platform.id;
       const key = `key:${platform.id}`;

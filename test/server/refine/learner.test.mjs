@@ -30,7 +30,7 @@ function fakeClient(reply) {
   };
 }
 
-test("candidate terms: list marks stripped; kept only if they occur in the text and carry a capital (times like 3pm don't)", () => {
+test("candidate terms: list marks stripped; kept only if they read as a name in the text (times like 3pm don't)", () => {
   const text = "We moved the api to Kubernetes and Postgres 17 at 3pm last week, said Zoë";
   const output = "- Kubernetes\n* Postgres 17\n\u2022 api\nweek\n3pm\nRedis\nZoë\nK";
   assert.deepEqual(termsFrom(output, text), ["Kubernetes", "Postgres 17", "Zoë"]);
@@ -77,4 +77,11 @@ test("short texts, a full dictionary, and a failing model all learn nothing with
     [],
   );
   assert.deepEqual(warned, ["dictionary_learn_failed"]);
+});
+
+test("words capitalized only because they start a sentence or a list item aren't names; mid-sentence capitals, acronyms, and inner capitals are", () => {
+  const text =
+    "For the trip, we need:\n- Tickets\n- Hotel booking\nWe moved the API from Heroku to Kubernetes. Supabase hosts PostgreSQL.\nWrite me a poem about the ocean.";
+  const output = "Tickets\nHotel booking\nAPI\nHeroku\nKubernetes\nSupabase\nPostgreSQL\nOcean\nWrite";
+  assert.deepEqual(termsFrom(output, text), ["API", "Heroku", "Kubernetes", "PostgreSQL"]);
 });

@@ -4,7 +4,7 @@ import { toModelError } from "../providers/errors.mjs";
 import { createLearner } from "./learner.mjs";
 import { createMeter } from "./meter.mjs";
 import { textFromModelOutput } from "./output.mjs";
-import { polishInput, polishPrompt } from "./polish-prompt.mjs";
+import { POLISH_EXAMPLES, polishInput, polishPrompt } from "./polish-prompt.mjs";
 
 // Cleanup: the on-device transcript in, the finished text out. Step two of the local transcription path; the user picks which text model does it (chat/vendors.mjs).
 // A sibling of the native path's refiner.mjs: billing (meter.mjs) and finishing (output.mjs) are shared, each has its own prompt.
@@ -73,7 +73,12 @@ export function createPolisher({
     }
     const startedAt = performance.now();
     client
-      .complete({ system: system(), user: polishInput("warm up"), signal: AbortSignal.timeout(PRIME_TIMEOUT_MS) })
+      .complete({
+        system: system(),
+        examples: POLISH_EXAMPLES,
+        user: polishInput("warm up"),
+        signal: AbortSignal.timeout(PRIME_TIMEOUT_MS),
+      })
       .then(
         () => log.info("cleanup_primed", { provider: endpoint.id, ms: Math.round(performance.now() - startedAt) }),
         (error) => log.warn("cleanup_prime_failed", { provider: endpoint.id, error: String(error?.message ?? error) }),
@@ -100,7 +105,12 @@ export function createPolisher({
       if (transcript.trim() === "") return "";
       try {
         const reply = await metered("dictation", audioId, () =>
-          client.complete({ system: system(app), user: polishInput(transcript), signal: withTimeout(signal) }),
+          client.complete({
+            system: system(app),
+            examples: POLISH_EXAMPLES,
+            user: polishInput(transcript),
+            signal: withTimeout(signal),
+          }),
         );
         if (reply.problem) throw new LocalizedError(reply.problem);
         const text = textFromModelOutput(reply.text);

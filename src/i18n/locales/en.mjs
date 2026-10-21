@@ -431,7 +431,7 @@ export default {
     custom: {
       name: "Custom service",
       desc: "OpenAI-compatible API · Your own address, model, and key",
-      meta: "OpenRouter, SiliconFlow, Ollama, and others",
+      meta: "OpenRouter, LM Studio, vLLM, and others",
       url: "API address",
       urlPlaceholder: "API address, e.g. https://api.example.com/v1",
       model: "Model name",
@@ -659,6 +659,7 @@ export default {
     prepare: {
       native: { soft: "Connect a ", title: "native model" },
       local: { soft: "Transcribe on device, ", title: "polish in the cloud" },
+      localOnly: { soft: "Transcribe and polish, ", title: "all on this computer" },
       private: { soft: "Download an ", title: "on-device model" },
       route: { label: "Route", audio: "Audio", text: "Text", local: "On-device" },
       sections: { model: "On-device model", native: "Native recognition", local: "Polish" },

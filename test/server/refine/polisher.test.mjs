@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createTranslator, msg } from "../../../src/i18n/index.mjs";
 import { ModelError } from "../../../src/server/providers/errors.mjs";
-import { POLISH_PROMPT, polishInput } from "../../../src/server/refine/polish-prompt.mjs";
+import { POLISH_EXAMPLES, POLISH_PROMPT, polishInput } from "../../../src/server/refine/polish-prompt.mjs";
 import { createChatPolisher, createPolisher } from "../../../src/server/refine/polisher.mjs";
 import { NO_SPEECH_MARK } from "../../../src/server/refine/prompt.mjs";
 
@@ -296,4 +296,14 @@ test("cleanup on this computer (Ollama) is billed as free, not as an unknown pri
   });
   await polisher.polish("done", { audioId: "a1" });
   assert.equal(calls[0].costUsd, 0);
+});
+
+test("the two examples go with every cleanup, as earlier chat turns: a question stays a question, a request stays a request", async () => {
+  const { client, requests } = fakeClient({ text: "Ship it.", problem: null, usage: USAGE });
+  await polisherWith(client).polish("ship it", {});
+  assert.equal(requests[0].examples, POLISH_EXAMPLES);
+  assert.deepEqual(
+    POLISH_EXAMPLES.map(({ assistant }) => assistant),
+    ["What time does the meeting start?", "Can you write up a summary of the Q4 numbers?"],
+  );
 });

@@ -119,6 +119,14 @@ function nameParts(name) {
 const tile = (id, className = "logo-tile") =>
   h("span", { class: className }, (id && providerIcon(id)) ?? svg(id === "local" ? "i-laptop" : "i-cloud"));
 
+/** The cleanup service local mode would use: the plan's when local is chosen, otherwise the one in the settings */
+const polishVendor = () => (plan.mode === "local" ? plan.polish : setup.local.polish.split("/")[0]);
+/** Whether a mode needs a key: native always; local unless cleanup runs on this computer (Ollama); private never */
+function needsKey(mode) {
+  if (mode !== "local") return mode === "native";
+  return setup.local.vendors.find(({ id }) => id === polishVendor())?.keyEnv !== null;
+}
+
 /** What a row needs: short phrases with icons */
 const need = (icon, text) => h("span", { class: "need" }, svg(icon), h("span", { text }));
 
@@ -162,7 +170,7 @@ function renderWays() {
     const size = local && (local.installed ? t("onboarding.prepare.model.ready") : sizeText(local.bytes));
     needs.replaceChildren(
       ...(local ? [need("i-laptop", t("onboarding.way.local", { size }))] : []),
-      mode === "private" ? need("i-lock", t("onboarding.way.offline")) : need("i-key-round", t("onboarding.way.key")),
+      needsKey(mode) ? need("i-key-round", t("onboarding.way.key")) : need("i-lock", t("onboarding.way.offline")),
     );
   }
   $("way-note").replaceChildren(
@@ -441,9 +449,11 @@ function keySection() {
 }
 
 function renderPrepare() {
+  // Local mode with Ollama does everything on this computer; with another cleanup service the text goes out
+  const titled = plan.mode === "local" && !needsKey("local") ? "localOnly" : plan.mode;
   $("prepare-title").replaceChildren(
-    h("span", { class: "soft", text: t(`onboarding.prepare.${plan.mode}.soft`) }),
-    h("span", { text: t(`onboarding.prepare.${plan.mode}.title`) }),
+    h("span", { class: "soft", text: t(`onboarding.prepare.${titled}.soft`) }),
+    h("span", { text: t(`onboarding.prepare.${titled}.title`) }),
   );
   renderRoute();
   renderStatus();

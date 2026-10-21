@@ -106,11 +106,16 @@ export function createClient({
      * @returns {Promise<{ text: string | null, problem: object | null, usage: object }>} the model's text (finishing is the caller's job),
      *   why it can't be used, and this call's usage. Unusable replies (truncated, blocked) were still charged, so nothing is thrown here; the caller bills, then reports
      */
-    async complete({ system, user, signal }) {
+    async complete({ system, user, examples = [], signal }) {
       const payload = await complete(
         {
           messages: [
             { role: "system", content: system },
+            // Examples go before the real message as earlier turns of the conversation
+            ...examples.flatMap((example) => [
+              { role: "user", content: example.user },
+              { role: "assistant", content: example.assistant },
+            ]),
             { role: "user", content: user },
           ],
         },

@@ -252,6 +252,8 @@ async function main() {
       });
   const serverUrl = EXTERNAL_SERVER_URL ?? service.url;
   const e2e = process.env.WHISPRFLOW_E2E_OUT ? await import("./e2e.mjs") : null;
+  // Screenshots of the windows for checking the pages (scripts/dev/screens.mjs); never loaded otherwise
+  const screens = process.env.WHISPRFLOW_SCREENS_OUT ? await import("./screens.mjs") : null;
 
   const keys = createKeyManager({
     service,
@@ -1295,6 +1297,16 @@ async function main() {
   startupChecked = true;
   setupChanged();
   offerSettingsIfIncomplete();
+  if (screens) {
+    await screens.runScreens({
+      showOnboarding,
+      onboardingWindow: () => onboardingWindow,
+      showHub,
+      hubWindow: () => hubWindow,
+      quit: (code) => app.exit(code),
+    });
+    return;
+  }
   // Double-clicking the app icon while it's running doesn't start another; the system "reopens" this one: bring the main window forward the same way.
   // Attached only after the startup checks, so startup itself doesn't count as a reopen
   app.on("activate", showMain);

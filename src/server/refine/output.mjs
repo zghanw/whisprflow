@@ -12,5 +12,6 @@ export function textFromModelOutput(output) {
   if (text.endsWith("</transcript>")) text = text.slice(0, -"</transcript>".length);
   text = text.trim();
   if (text.length > 1 && text.startsWith('"') && text.endsWith('"')) text = text.slice(1, -1).trim();
-  return text;
+  // Models end list lines with two spaces (a Markdown line break): invisible, but they'd be pasted
+  return text.replace(/[ \t]+$/gm, "");
 }

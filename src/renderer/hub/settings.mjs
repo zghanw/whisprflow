@@ -246,6 +246,8 @@ export function createSettings({ refresh }) {
     open(pane = "general") {
       showPane(pane);
       if (!dialog.open) dialog.showModal();
+      // The dialog focuses its first control on opening; the page being shown is the one that should hold focus
+      dialog.querySelector('.menu-item[aria-current="true"]')?.focus();
     },
 
     render(setup) {
