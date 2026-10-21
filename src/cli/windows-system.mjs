@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, realpathSync } from "node:fs";
 
 // The parts of Windows the CLI has to touch: what install.ps1 left outside the home directory (an entry in the user Path, the Start menu shortcut)
 // and launch at login turned on in the app, removed on uninstall; plus the fact that running programs can't be deleted. All done through PowerShell, with values passed in environment variables,
@@ -50,10 +50,26 @@ export function isOurShortcut(file, home) {
   if (!existsSync(file)) return false;
   const output = powershell(
     `$target = (New-Object -ComObject WScript.Shell).CreateShortcut($env:WHISPRFLOW_SHORTCUT).TargetPath
-     if ($target.StartsWith("$env:WHISPRFLOW_HOME_DIR\\runtime\\", [StringComparison]::OrdinalIgnoreCase)) { 'ours' }`,
-    { WHISPRFLOW_SHORTCUT: file, WHISPRFLOW_HOME_DIR: home },
+     foreach ($dir in $env:WHISPRFLOW_HOME_DIRS.Split([char]10)) {
+       if ($target.StartsWith("$dir\\runtime\\", [StringComparison]::OrdinalIgnoreCase)) { 'ours'; break }
+     }`,
+    { WHISPRFLOW_SHORTCUT: file, WHISPRFLOW_HOME_DIRS: spellingsOf(home) },
   );
   return output.trim() === "ours";
+}
+
+/**
+ * The ways a home directory may be written, one per line: as given, and with Windows short names (CHANHA~1) expanded. The shell stores a shortcut's
+ * target with short names expanded, so a home given in short form wouldn't match it; expanded alone wouldn't match a home under a junction either
+ */
+function spellingsOf(home) {
+  let expanded = home;
+  try {
+    expanded = realpathSync.native(home);
+  } catch {
+    // Already gone: only the given spelling is left to compare
+  }
+  return [...new Set([home, expanded])].join("\n");
 }
 
 const RUN_KEYS = [
@@ -69,11 +85,14 @@ export function removeLoginItem(home) {
   const output = powershell(
     `$run = Get-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run' -Name 'WhisprFlow' -ErrorAction SilentlyContinue
     # Match the home directory literally (not -like: [ ] in the path would be treated as wildcards)
-     if ($run -and $run.WhisprFlow.IndexOf("$env:WHISPRFLOW_HOME_DIR\\runtime\\", [StringComparison]::OrdinalIgnoreCase) -ge 0) {
+     $ours = $run -and @($env:WHISPRFLOW_HOME_DIRS.Split([char]10) | Where-Object {
+       $run.WhisprFlow.IndexOf("$_\\runtime\\", [StringComparison]::OrdinalIgnoreCase) -ge 0
+     }).Count -gt 0
+     if ($ours) {
        foreach ($key in $env:WHISPRFLOW_RUN_KEYS.Split([char]10)) { Remove-ItemProperty -Path $key -Name 'WhisprFlow' -ErrorAction SilentlyContinue }
        'removed'
      }`,
-    { WHISPRFLOW_HOME_DIR: home, WHISPRFLOW_RUN_KEYS: RUN_KEYS.join("\n") },
+    { WHISPRFLOW_HOME_DIRS: spellingsOf(home), WHISPRFLOW_RUN_KEYS: RUN_KEYS.join("\n") },
   );
   return output.trim() === "removed";
 }

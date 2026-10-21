@@ -1,6 +1,6 @@
 // Builds WhisprFlow-Setup-x64.exe, the Windows installer for direct download: the program built from native/windows-setup, followed by
-// a stored (uncompressed) zip (this version's program package with its checksum, install.ps1, and latest, laid out like the download address), with the last 16 bytes
-// a marker and the zip's length. The format matches what native/windows-setup/payload.go reads.
+// a stored (uncompressed) zip (install.ps1, plus this version's program package with its checksum and latest, laid out like the download address:
+// download/<version>/ and latest/download/latest), with the last 16 bytes a marker and the zip's length. The format matches what native/windows-setup/payload.go reads.
 // Double-clicked, it unpacks the zip to a temporary directory and runs install.ps1 with that as the download address: install.ps1 stays the only way to install.
 // Called by the release build after the Windows package is made.
 import { execFileSync } from "node:child_process";
@@ -17,6 +17,7 @@ import {
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { goCommand } from "../../src/cli/native-helper.mjs";
+import { tarCommand } from "../../src/models/runtime.mjs";
 
 export const SETUP_MAGIC = "SMSETUP1";
 /**
@@ -92,14 +93,16 @@ export function buildWindowsSetup({ packageDir, version, versionDir, archive, ou
     }
 
     const stage = join(work, "payload");
-    mkdirSync(join(stage, versionDir), { recursive: true });
-    copyFileSync(archive, join(stage, versionDir, basename(archive)));
-    copyFileSync(`${archive}.sha256`, join(stage, versionDir, `${basename(archive)}.sha256`));
+    const files = join(stage, "download", versionDir);
+    mkdirSync(files, { recursive: true });
+    mkdirSync(join(stage, "latest", "download"), { recursive: true });
+    copyFileSync(archive, join(files, basename(archive)));
+    copyFileSync(`${archive}.sha256`, join(files, `${basename(archive)}.sha256`));
     copyFileSync(join(packageDir, "install.ps1"), join(stage, "install.ps1"));
-    writeFileSync(join(stage, "latest"), `${versionDir}\n`);
+    writeFileSync(join(stage, "latest", "download", "latest"), `${versionDir}\n`);
     const payload = join(work, "payload.zip");
     // Stored, not compressed: the program package is already compressed, and compressing again only wastes time
-    run("zip", ["-0", "-q", "-r", "-X", payload, "."], { cwd: stage });
+    run(tarCommand(), ["--format", "zip", "--options", "zip:compression=store", "-cf", payload, "."], { cwd: stage });
 
     copyFileSync(program, out);
     appendFileSync(out, readFileSync(payload));

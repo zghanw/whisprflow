@@ -65,13 +65,14 @@ function makeArchive(arch, version = "9.9.9") {
   mkdirSync(join(staging, "app", "bin"), { recursive: true });
   writeFileSync(join(staging, "app", "bin", "whisprflow.mjs"), "// fake\n");
   writeFileSync(join(staging, "app", "package.json"), `{\n  "name": "whisprflow",\n  "version": "${version}"\n}\n`);
-  // Laid out like the real download address: each version's packages in its own directory, with latest at the root naming the newest
-  mkdirSync(join(release, `v${version}`), { recursive: true });
-  const archive = join(release, `v${version}`, `whisprflow-darwin-${arch}.tar.gz`);
+  // Laid out like the real download address (GitHub Releases): each version's packages under download/<version>/, latest/download/latest naming the newest
+  mkdirSync(join(release, "download", `v${version}`), { recursive: true });
+  mkdirSync(join(release, "latest", "download"), { recursive: true });
+  const archive = join(release, "download", `v${version}`, `whisprflow-darwin-${arch}.tar.gz`);
   execFileSync("tar", ["-czf", archive, "-C", staging, "app", "runtime"]);
   const digest = createHash("sha256").update(readFileSync(archive)).digest("hex");
   writeFileSync(`${archive}.sha256`, `${digest}  whisprflow-darwin-${arch}.tar.gz\n`);
-  writeFileSync(join(release, "latest"), `v${version}\n`);
+  writeFileSync(join(release, "latest", "download", "latest"), `v${version}\n`);
   rmSync(staging, { recursive: true });
 }
 
@@ -227,10 +228,10 @@ test("installs the version marked latest at the download address by default; WHI
 });
 
 test("no latest version, one that doesn't look like a version, or a missing specified version: all said before downloading, nothing installed", () => {
-  writeFileSync(join(release, "latest"), "<html>error</html>\n");
+  writeFileSync(join(release, "latest", "download", "latest"), "<html>error</html>\n");
   assertRefused(install(), /returned a bad version number/);
 
-  rmSync(join(release, "latest"));
+  rmSync(join(release, "latest", "download", "latest"));
   assertRefused(install(), /Couldn't find the latest version/);
 
   assertRefused(
@@ -278,7 +279,10 @@ test("every provider's reachability is checked: reachable ones get a check, unre
 test("a downloaded package that differs from the release (checksum fails): not installed, the existing install untouched", () => {
   assert.equal(install().code, 0);
   makeArchive("arm64", "10.0.0");
-  writeFileSync(join(release, "v10.0.0", "whisprflow-darwin-arm64.tar.gz.sha256"), `${"0".repeat(64)}  x\n`);
+  writeFileSync(
+    join(release, "download", "v10.0.0", "whisprflow-darwin-arm64.tar.gz.sha256"),
+    `${"0".repeat(64)}  x\n`,
+  );
   assertRefused(install(), /Checksum mismatch/);
   assert.equal(installedVersion(), "9.9.9");
   assert.deepEqual(readdirSync(home()).sort(), ["app", "bin", "runtime"]);

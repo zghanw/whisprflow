@@ -21,7 +21,10 @@ import { removeAfterExit } from "./windows-system.mjs";
 
 const WINDOWS = process.platform === "win32";
 
-/** Releases live here, the same as DOWNLOAD_URL in install.sh */
+/**
+ * Releases live here, the same as DOWNLOAD_URL in install.sh. Laid out the way GitHub Releases serves them (a local release directory matches):
+ * latest/download/latest is the newest version, and each version's files (packages, checksums, installers) are under download/<version>/
+ */
 export const DOWNLOAD_URL = "https://github.com/zghanw/whisprflow/releases";
 
 /** The bundle id written into the app when packaging (scripts/build/mac-app.mjs): something named WhisprFlow.app isn't necessarily ours */
@@ -158,7 +161,7 @@ export function createUpdater({ env, home, progress = false }) {
   return {
     /** The version marked latest at the download address (as is, like v0.6.0). @param {number} timeoutSeconds the longest to wait */
     async latest(timeoutSeconds) {
-      const text = await curl(`${base}/latest`, ["--max-time", String(timeoutSeconds)]);
+      const text = await curl(`${base}/latest/download/latest`, ["--max-time", String(timeoutSeconds)]);
       return text.split("\n")[0].trim();
     },
 
@@ -172,7 +175,12 @@ export function createUpdater({ env, home, progress = false }) {
       const dir = mkdtempSync(join(tmpdir(), "whisprflow-update-"));
       try {
         const script = join(dir, WINDOWS ? "install.ps1" : "install.sh");
-        await curl(`${base}/${WINDOWS ? "install.ps1" : "install.sh"}`, ["--max-time", "60", "-o", script]);
+        await curl(`${base}/download/${version}/${WINDOWS ? "install.ps1" : "install.sh"}`, [
+          "--max-time",
+          "60",
+          "-o",
+          script,
+        ]);
         const installerEnv = { ...env, WHISPRFLOW_HOME: home, WHISPRFLOW_VERSION: version };
         const [command, args] = WINDOWS
           ? ["powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", RUN_INSTALL_PS1]]
@@ -234,7 +242,7 @@ export function createUpdater({ env, home, progress = false }) {
     async installApp(version, app) {
       const arch = process.arch === "arm64" ? "arm64" : "x64";
       const name = `WhisprFlow-${arch}.dmg`;
-      const url = `${base}/${version}/${name}`;
+      const url = `${base}/download/${version}/${name}`;
       const dir = mkdtempSync(join(tmpdir(), "whisprflow-app-update-"));
       const mountpoint = join(dir, "mnt");
       let mounted = false;

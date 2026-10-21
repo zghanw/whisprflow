@@ -67,6 +67,21 @@ test(
       return file;
     };
     assert.equal(isOurShortcut(make("ours.lnk", join(home, "runtime", "electron.exe")), home), true);
+    // The home given with Windows short names (as TEMP often is) still matches: the shell stores the target with them expanded
+    mkdirSync(home, { recursive: true });
+    const short = execFileSync(
+      "powershell",
+      [
+        "-NoProfile",
+        "-NonInteractive",
+        "-Command",
+        "(New-Object -ComObject Scripting.FileSystemObject).GetFolder($env:DIR).ShortPath",
+      ],
+      { env: { ...process.env, DIR: home }, encoding: "utf8" },
+    ).trim();
+    if (short.toLowerCase() !== home.toLowerCase()) {
+      assert.equal(isOurShortcut(make("short.lnk", join(short, "runtime", "electron.exe")), short), true);
+    }
     assert.equal(isOurShortcut(make("theirs.lnk", join(dir, "other", "runtime", "electron.exe")), home), false);
     assert.equal(isOurShortcut(join(dir, "missing.lnk"), home), false);
   },

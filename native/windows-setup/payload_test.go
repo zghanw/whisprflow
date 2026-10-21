@@ -50,10 +50,10 @@ func open(t *testing.T, path string) (*zip.Reader, error) {
 
 func TestPayloadUnpacksIntoTheDirectory(t *testing.T) {
 	path := fakeSetup(t, map[string]string{
-		"latest":                                 "v0.9.0\n",
-		"install.ps1":                            "& { 'hi' }",
-		"v0.9.0/whisprflow-win32-x64.zip":        "zip",
-		"v0.9.0/whisprflow-win32-x64.zip.sha256": "abc  whisprflow-win32-x64.zip\n",
+		"latest/download/latest":                          "v0.9.0\n",
+		"install.ps1":                                     "& { 'hi' }",
+		"download/v0.9.0/whisprflow-win32-x64.zip":        "zip",
+		"download/v0.9.0/whisprflow-win32-x64.zip.sha256": "abc  whisprflow-win32-x64.zip\n",
 	}, nil)
 	r, err := open(t, path)
 	if err != nil {
@@ -63,7 +63,7 @@ func TestPayloadUnpacksIntoTheDirectory(t *testing.T) {
 	if err := extract(r, dir); err != nil {
 		t.Fatal(err)
 	}
-	got, err := os.ReadFile(filepath.Join(dir, "v0.9.0", "whisprflow-win32-x64.zip.sha256"))
+	got, err := os.ReadFile(filepath.Join(dir, "download", "v0.9.0", "whisprflow-win32-x64.zip.sha256"))
 	if err != nil || string(got) != "abc  whisprflow-win32-x64.zip\n" {
 		t.Fatalf("got %q, %v", got, err)
 	}

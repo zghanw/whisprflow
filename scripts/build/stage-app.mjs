@@ -2,10 +2,12 @@
 // Packaging the .app (package.mjs) and release packages both start here.
 
 import { execFileSync } from "node:child_process";
-import { cpSync, existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { cpSync, existsSync, readdirSync, readFileSync, rmdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 
 const NPM_FLAGS = ["--omit=dev", "--ignore-scripts", "--no-audit", "--no-fund"];
+/** The system doing the packaging (the package itself may be for another) */
+const platformOfThisMachine = process.platform;
 
 /**
  * The directories the background app reads from the repository at run time: code, the built helper, icons.
@@ -30,6 +32,14 @@ export const UNUSED_PACKAGES = [
   "@audio/decode-vorbis",
   "codec-parser",
 ];
+
+/** Deletes the empty directories under dir, deepest first. In Node rather than find: on Windows, find is a different program */
+function removeEmptyDirectories(dir) {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isDirectory()) removeEmptyDirectories(join(dir, entry.name));
+  }
+  if (readdirSync(dir).length === 0) rmdirSync(dir);
+}
 
 export function pruneUnused(stagingDir) {
   for (const name of UNUSED_PACKAGES) rmSync(join(stagingDir, "node_modules", name), { recursive: true, force: true });
@@ -96,15 +106,24 @@ export function stageApp(packageDir, stagingDir, entries, arch, platform = "darw
   for (const entry of ["package.json", "package-lock.json", ...entries]) {
     cpSync(join(packageDir, entry), join(stagingDir, entry), { recursive: true });
   }
-  // Helpers for other systems stay out
-  for (const [system, files] of Object.entries(HELPER_FILES)) {
-    if (system === platform) continue;
-    for (const file of files) rmSync(join(stagingDir, "build", file), { force: true });
+  // Of build, only this system's helper goes out: helpers for other systems stay out, and so does anything else built there on this machine
+  if (entries.includes("build")) {
+    for (const name of readdirSync(join(stagingDir, "build"))) {
+      if (!HELPER_FILES[platform].includes(name))
+        rmSync(join(stagingDir, "build", name), { recursive: true, force: true });
+    }
   }
   // On-device transcription runtimes come as one package with native libraries per system and chip (optionalDependencies), and npm installs only this machine's by default:
   // when packaging for Intel or Windows on an Apple silicon Mac, say which to install, or the local one goes in and fails to load over there
   const target = [`--os=${platform}`, `--cpu=${arch}`];
-  const npm = (args) => execFileSync("npm", [...args, ...target, ...NPM_FLAGS], { cwd: stagingDir, stdio: "inherit" });
+  // As an npm script, npm's own entry runs on this Node (npm_execpath); otherwise the npm command, which on Windows is npm.cmd and needs a shell
+  const [command, prefix] = process.env.npm_execpath ? [process.execPath, [process.env.npm_execpath]] : ["npm", []];
+  const npm = (args) =>
+    execFileSync(command, [...prefix, ...args, ...target, ...NPM_FLAGS], {
+      cwd: stagingDir,
+      stdio: "inherit",
+      shell: !process.env.npm_execpath && platformOfThisMachine === "win32",
+    });
   // Not handing the source repository to the packager to prune dev dependencies: it was seen to prune incompletely, bringing in the linter's tens-of-MB executable
   npm(["ci"]);
   // The electron dependency lets people running from source find a runtime. The installed program has its own runtime, so it and its downloader stay out
@@ -112,7 +131,7 @@ export function stageApp(packageDir, stagingDir, entries, arch, platform = "darw
   npm(["uninstall", "electron"]);
   pruneUnused(stagingDir);
   // Uninstalling leaves a few empty directories behind (node_modules/@electron and the like)
-  execFileSync("find", [join(stagingDir, "node_modules"), "-type", "d", "-empty", "-delete"]);
+  removeEmptyDirectories(join(stagingDir, "node_modules"));
   const copyleft = findCopyleft(join(stagingDir, "node_modules"));
   if (copyleft.length > 0) {
     const listed = copyleft.map(({ name, license }) => `${name} (${license})`).join(", ");

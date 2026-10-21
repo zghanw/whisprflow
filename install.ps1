@@ -1,6 +1,6 @@
 # The WhisprFlow installer for Windows: checks the environment, downloads, verifies, installs into %USERPROFILE%\.whisprflow, then starts it.
 #
-#   irm https://github.com/zghanw/whisprflow/releases/install.ps1 | iex
+#   irm https://github.com/zghanw/whisprflow/releases/latest/download/install.ps1 | iex
 #
 # The same job and layout as install.sh: the program, its runtime, and later the settings, keys, history, and recordings all live in the one .whisprflow directory.
 # Outside it only two things change, both recorded in bin\links for whisprflow uninstall to remove:
@@ -12,6 +12,9 @@
 #   WHISPRFLOW_HOME          where to install (default %USERPROFILE%\.whisprflow)
 #   WHISPRFLOW_VERSION       which version to install, like v0.9.0 (default the latest)
 #   WHISPRFLOW_INSTALL_BASE  where to download from: a URL prefix, or a local directory (dist\release made by npm run release)
+#
+# The download address is laid out the way GitHub Releases serves it: latest/download/latest holds the newest version, and each version's files
+# are under download/<version>/ (the package, its .sha256, and this script)
 #   WHISPRFLOW_NO_START=1    install without starting
 #
 # Must run on the PowerShell 5.1 that ships with Windows, which has these known pitfalls:
@@ -31,7 +34,7 @@
   $Archive = 'whisprflow-win32-x64.zip'
   # Electron 44 needs Windows 10 1809 (build 17763) or later
   $MinBuild = 17763
-  # The download is about 150 MB, about 450 MB unpacked; on upgrade the old copy is only deleted once the new one is in place
+  # The download is about 180 MB, about 500 MB unpacked; on upgrade the old copy is only deleted once the new one is in place
   $NeededMB = 1200
 
   function Ok($text) { Write-Host "  " -NoNewline; Write-Host ([char]0x2713) -ForegroundColor Green -NoNewline; Write-Host " $text" }
@@ -126,14 +129,14 @@
     if ($version) {
       if (-not $version.StartsWith('v')) { $version = "v$version" }
     } else {
-      try { $version = ([string](Get-Remote 'latest')).Trim() } catch {
-        Fail "Couldn't find the latest version" "URL: $($script:Base)/latest" "Check your network and try again in a bit." "($($_.Exception.Message))"
+      try { $version = ([string](Get-Remote 'latest/download/latest')).Trim() } catch {
+        Fail "Couldn't find the latest version" "URL: $($script:Base)/latest/download/latest" "Check your network and try again in a bit." "($($_.Exception.Message))"
       }
     }
     # The version is spliced into the download address: anything that doesn't look like a version stops here (say, an error page)
     if ($version -notmatch '^v\d+\.\d+\.\d+([-+.][0-9A-Za-z.-]+)?$') {
       if ($env:WHISPRFLOW_VERSION) { Fail "WHISPRFLOW_VERSION doesn't look like a version: $($env:WHISPRFLOW_VERSION)" "Write it like v0.9.0." }
-      Fail "The download server returned a bad version number" "URL: $($script:Base)/latest" "Try again in a bit. If it keeps happening, please open an issue at $RepoUrl/issues."
+      Fail "The download server returned a bad version number" "URL: $($script:Base)/latest/download/latest" "Try again in a bit. If it keeps happening, please open an issue at $RepoUrl/issues."
     }
     $script:Version = $version
     Ok "Version $version"
@@ -146,10 +149,10 @@
     New-Item -ItemType Directory -Path $script:TmpDir | Out-Null
     $zip = Join-Path $script:TmpDir $Archive
     try {
-      Get-Remote "$($script:Version)/$Archive" $zip
-      Get-Remote "$($script:Version)/$Archive.sha256" "$zip.sha256"
+      Get-Remote "download/$($script:Version)/$Archive" $zip
+      Get-Remote "download/$($script:Version)/$Archive.sha256" "$zip.sha256"
     } catch {
-      Fail "Couldn't download the package" "URL: $($script:Base)/$($script:Version)/$Archive" "Check your network. If you set WHISPRFLOW_VERSION, make sure that version exists." "($($_.Exception.Message))"
+      Fail "Couldn't download the package" "URL: $($script:Base)/download/$($script:Version)/$Archive" "Check your network. If you set WHISPRFLOW_VERSION, make sure that version exists." "($($_.Exception.Message))"
     }
     Ok "Downloaded"
 

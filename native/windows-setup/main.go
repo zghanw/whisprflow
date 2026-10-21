@@ -40,7 +40,7 @@ func install() int {
 		fmt.Printf("\n  x %v\n", err)
 		return 1
 	}
-	version, err := os.ReadFile(filepath.Join(dir, "latest"))
+	version, err := os.ReadFile(filepath.Join(dir, "latest", "download", "latest"))
 	if err != nil {
 		fmt.Printf("\n  x This setup file is damaged (%v); download it again.\n", err)
 		return 1

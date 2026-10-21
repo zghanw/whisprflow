@@ -1,7 +1,7 @@
 #!/bin/bash
 # The WhisprFlow installer: checks the environment, downloads, verifies, installs into ~/.whisprflow, then starts it.
 #
-#   curl -fsSL https://github.com/zghanw/whisprflow/releases/install.sh | bash
+#   curl -fsSL https://github.com/zghanw/whisprflow/releases/latest/download/install.sh | bash
 #
 # Everything goes into the one ~/.whisprflow directory (the program, its runtime, and later the settings, keys, history, and recordings);
 # outside it only a link to the command is created. No Node, npm, Xcode, or sudo needed.
@@ -20,8 +20,8 @@
 set -euo pipefail
 
 REPO_URL="https://github.com/zghanw/whisprflow"
-# Releases live here. At the root are this script and latest (one line, the newest version), with each version's packages in its own directory:
-# <version>/whisprflow-darwin-<chip>.tar.gz and a .sha256 of the same name
+# Releases live here, laid out the way GitHub Releases serves them: latest/download/latest is one line, the newest version, and each version's files
+# are under download/<version>/: whisprflow-darwin-<chip>.tar.gz, a .sha256 of the same name, and this script
 DOWNLOAD_URL="https://github.com/zghanw/whisprflow/releases"
 # The cloud providers (name and host in pairs); cloud modes need to reach one of them. Matches those registered in src/server/providers/index.mjs
 MODEL_HOSTS=("Gemini" "generativelanguage.googleapis.com" "OpenAI" "api.openai.com")
@@ -128,15 +128,15 @@ resolve_version() {
   if [ -n "$version" ]; then
     case "$version" in v*) ;; *) version="v$version" ;; esac
   else
-    version="$(curl -fsSL --max-time 20 "$DOWNLOAD_BASE/latest" 2>/dev/null | head -n 1 | tr -d '[:space:]')" || version=""
-    [ -n "$version" ] || fail "Couldn't find the latest version" "URL: $DOWNLOAD_BASE/latest" "Check your network and try again in a bit."
+    version="$(curl -fsSL --max-time 20 "$DOWNLOAD_BASE/latest/download/latest" 2>/dev/null | head -n 1 | tr -d '[:space:]')" || version=""
+    [ -n "$version" ] || fail "Couldn't find the latest version" "URL: $DOWNLOAD_BASE/latest/download/latest" "Check your network and try again in a bit."
   fi
   # The version is spliced into the download address: anything that doesn't look like a version stops here (say, an error page)
   if ! [[ "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-+.][0-9A-Za-z.-]+)?$ ]]; then
     [ -n "${WHISPRFLOW_VERSION:-}" ] && fail "WHISPRFLOW_VERSION doesn't look like a version: $WHISPRFLOW_VERSION" "Write it like v0.2.0."
-    fail "The download server returned a bad version number" "URL: $DOWNLOAD_BASE/latest" "Try again in a bit. If it keeps happening, please open an issue at $REPO_URL/issues."
+    fail "The download server returned a bad version number" "URL: $DOWNLOAD_BASE/latest/download/latest" "Try again in a bit. If it keeps happening, please open an issue at $REPO_URL/issues."
   fi
-  BASE_URL="$DOWNLOAD_BASE/$version"
+  BASE_URL="$DOWNLOAD_BASE/download/$version"
 }
 
 check_network() {

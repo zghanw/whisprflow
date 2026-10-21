@@ -126,8 +126,8 @@ export function runProgram(command, args, { env, cwd, signal, onLine = () => {} 
   });
 }
 
-/** The tar that reads zip too: Windows 10 and later ship bsdtar in System32 (a tar from Git or MSYS on PATH can't open zip) */
-const tarCommand = (platform) =>
+/** The tar that reads and writes zip too: Windows 10 and later ship bsdtar in System32 (a tar from Git or MSYS on PATH can't), macOS's tar is bsdtar */
+export const tarCommand = (platform = process.platform) =>
   platform === "win32" ? join(process.env.SystemRoot ?? "C:\\Windows", "System32", "tar.exe") : "tar";
 
 /**

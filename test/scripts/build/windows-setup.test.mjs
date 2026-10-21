@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, test } from "node:test";
 import { buildWindowsSetup, fileVersion, SETUP_MAGIC, setupTrailer } from "../../../scripts/build/windows-setup.mjs";
+import { tarCommand } from "../../../src/models/runtime.mjs";
 
 let dir;
 beforeEach(() => {
@@ -23,7 +24,7 @@ test("the file version only takes four numbers: a prerelease takes the first thr
   assert.equal(fileVersion("0.9.0-rc.1"), "0.9.0.0");
 });
 
-test("layout: the program first, then a stored zip (the version directory's package and checksum, install.ps1, latest), then the trailer; build-time resource files don't stay", () => {
+test("layout: the program first, then a stored zip (install.ps1, and the package, checksum, and latest laid out like the download address), then the trailer; build-time resource files don't stay", () => {
   const packageDir = join(dir, "repo");
   const source = join(packageDir, "native", "windows-setup");
   mkdirSync(source, { recursive: true });
@@ -33,20 +34,20 @@ test("layout: the program first, then a stored zip (the version directory's pack
   writeFileSync(archive, "program package");
   writeFileSync(`${archive}.sha256`, "abc  whisprflow-win32-x64.zip\n");
   const calls = [];
-  // Fake go and zip: record how they were called and write the files they should produce
+  // Fake go and tar: record how they were called and write the files they should produce
   const run = (command, args, options) => {
     calls.push({ command, args, options });
     if (args[1]?.startsWith("github.com/tc-hib/go-winres"))
       writeFileSync(join(source, "rsrc_windows_amd64.syso"), "resources");
     if (args[0] === "build") writeFileSync(args[args.indexOf("-o") + 1], "MZ installer");
-    if (command === "zip") {
+    if (command === tarCommand()) {
       const staged = options.cwd;
       // Everything staged is there: the zip below builds a "package" from their contents
       const content = [
         "install.ps1",
-        "latest",
-        "v0.9.0/whisprflow-win32-x64.zip",
-        "v0.9.0/whisprflow-win32-x64.zip.sha256",
+        "latest/download/latest",
+        "download/v0.9.0/whisprflow-win32-x64.zip",
+        "download/v0.9.0/whisprflow-win32-x64.zip.sha256",
       ]
         .map((name) => `${name}=${readFileSync(join(staged, name), "utf8")}`)
         .join("|");
@@ -65,8 +66,11 @@ test("layout: the program first, then a stored zip (the version directory's pack
   assert.equal(winres.options.env?.GOOS, undefined, "go-winres is a tool run on this machine, not cross-compiled");
   const build = calls.find(({ args }) => args[0] === "build");
   assert.equal(build.options.env.GOOS, "windows");
-  const zip = calls.find(({ command }) => command === "zip");
-  assert.ok(zip.args.includes("-0"), "stored, not compressed: the program package is already compressed");
+  const zip = calls.find(({ command }) => command === tarCommand());
+  assert.ok(
+    zip.args.includes("zip:compression=store"),
+    "stored, not compressed: the program package is already compressed",
+  );
 
   const bytes = readFileSync(out);
   const program = Buffer.from("MZ installer");
@@ -78,7 +82,7 @@ test("layout: the program first, then a stored zip (the version directory's pack
   const payload = bytes.subarray(program.length, program.length + payloadLength).toString();
   assert.equal(
     payload,
-    "install.ps1=& { 'install' }\n|latest=v0.9.0\n|v0.9.0/whisprflow-win32-x64.zip=program package|v0.9.0/whisprflow-win32-x64.zip.sha256=abc  whisprflow-win32-x64.zip\n",
+    "install.ps1=& { 'install' }\n|latest/download/latest=v0.9.0\n|download/v0.9.0/whisprflow-win32-x64.zip=program package|download/v0.9.0/whisprflow-win32-x64.zip.sha256=abc  whisprflow-win32-x64.zip\n",
   );
   assert.equal(existsSync(join(source, "rsrc_windows_amd64.syso")), false);
 });

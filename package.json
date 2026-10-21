@@ -1,7 +1,7 @@
 {
   "name": "whisprflow",
   "productName": "WhisprFlow",
-  "version": "0.9.1",
+  "version": "2.0.0",
   "private": true,
   "description": "Voice dictation for Windows and macOS: press a hotkey, speak, and clean text lands in the current input. Runs on-device with Ollama, or with your own Gemini or OpenAI key",
   "license": "MIT",
@@ -34,6 +34,7 @@
     "start": "node bin/whisprflow.mjs",
     "build:native": "node scripts/build/build-native.mjs",
     "dist": "node scripts/build/package.mjs",
+    "release": "node scripts/build/release.mjs",
     "install-app": "sh scripts/build/install-app.sh",
     "test": "npm run test:unit && npm run test:install",
     "test:unit": "node --test --test-timeout=5000 \"test/*.test.mjs\" \"test/!(install)/**/*.test.mjs\"",

@@ -56,11 +56,10 @@ test(
     const release = join(dir, "release");
     const record = join(dir, "record");
     const home = join(dir, "home");
-    mkdirSync(release);
-    writeFileSync(join(release, "latest"), "v9.9.9\n");
+    publish(release, "v9.9.9");
     // A fake installer: records where and which version it installs, and exits with the requested code
     writeFileSync(
-      join(release, "install.sh"),
+      join(release, "download", "v9.9.9", "install.sh"),
       `printf '%s|%s|%s\\n' "$WHISPRFLOW_HOME" "$WHISPRFLOW_VERSION" "$#" > ${JSON.stringify(record)}\nexit "\${FAKE_EXIT:-0}"\n`,
     );
     const updater = createUpdater({ env: { ...process.env, WHISPRFLOW_INSTALL_BASE: release }, home });
@@ -116,11 +115,23 @@ function fakeApp(parent, version, { sign = true, bundleId = "com.zghanw.whisprfl
   return app;
 }
 
-/** Puts an app into a dmg like a release does, under release/<version>/, with a checksum */
+/**
+ * Lays out a release directory the way GitHub Releases serves one: latest/download/latest names the newest version, and that version's files go under
+ * download/<version>/. @returns the version's directory
+ */
+function publish(release, version) {
+  mkdirSync(join(release, "latest", "download"), { recursive: true });
+  writeFileSync(join(release, "latest", "download", "latest"), `${version}\n`);
+  const folder = join(release, "download", version);
+  mkdirSync(folder, { recursive: true });
+  return folder;
+}
+
+/** Puts an app into a dmg like a release does, under release/download/<version>/, with a checksum */
 function publishDmg(release, version, app) {
   const stage = mkdtempSync(join(dir, "stage-"));
   execFileSync("ditto", [app, join(stage, "WhisprFlow.app")]);
-  const folder = join(release, version);
+  const folder = join(release, "download", version);
   mkdirSync(folder, { recursive: true });
   const dmg = join(folder, `WhisprFlow-${ARCH}.dmg`);
   execFileSync("hdiutil", [
@@ -191,7 +202,7 @@ test("replacing the app downloads the dmg for this chip, checks the checksum and
   assert.deepEqual(readdirSync(applications), ["WhisprFlow.app"]);
 
   // The dmg's version doesn't match the one to install: not installed
-  cpSync(join(release, "v0.2.0"), join(release, "v0.3.0"), { recursive: true });
+  cpSync(join(release, "download", "v0.2.0"), join(release, "download", "v0.3.0"), { recursive: true });
   await assert.rejects(updater.installApp("v0.3.0", installed), (error) => {
     assert.ok(error instanceof LocalizedError);
     assert.match(en.text(error.problem), /0\.3\.0/);
@@ -232,8 +243,8 @@ test("replacing the app: a checksum mismatch or a missing signature means no ins
 test("whether to start after installing: when not, the installer gets --no-start", macOnly, async () => {
   const release = join(dir, "release");
   const record = join(dir, "args");
-  mkdirSync(release);
-  writeFileSync(join(release, "install.sh"), `printf '%s' "$*" > ${JSON.stringify(record)}\n`);
+  publish(release, "v9.9.9");
+  writeFileSync(join(release, "download", "v9.9.9", "install.sh"), `printf '%s' "$*" > ${JSON.stringify(record)}\n`);
   const updater = createUpdater({ env: { ...process.env, WHISPRFLOW_INSTALL_BASE: release }, home: dir });
   assert.equal(await updater.install("v9.9.9", { start: false }), 0);
   assert.equal(readFileSync(record, "utf8"), "--no-start");
@@ -288,11 +299,10 @@ test(
     const release = join(dir, "release");
     const record = join(dir, "record");
     const home = join(dir, "home");
-    mkdirSync(release);
-    writeFileSync(join(release, "latest"), "v9.9.9\n");
+    publish(release, "v9.9.9");
     // A fake installer: records the environment variables it got (with a non-ASCII word, so it must be read as UTF-8), and finishes as requested
     writeFileSync(
-      join(release, "install.ps1"),
+      join(release, "download", "v9.9.9", "install.ps1"),
       `& { Set-Content -Encoding UTF8 -Path $env:RECORD -Value "install\u00e9|$($env:WHISPRFLOW_HOME)|$($env:WHISPRFLOW_VERSION)|$($env:WHISPRFLOW_NO_START)"; $global:LASTEXITCODE = [int]$env:FAKE_EXIT }\n`,
     );
     const env = { ...process.env, WHISPRFLOW_INSTALL_BASE: release, RECORD: record, FAKE_EXIT: "0" };

@@ -773,7 +773,7 @@ export default {
   cli: {
     help: `WhisprFlow: press a hotkey, speak, and polished text is pasted into the current text box.
 
-  whisprflow                     Start (just shows status if already running). First run asks for an API key (Gemini by default)
+  whisprflow                     Start (just shows status if already running). First run asks how to recognize speech (on-device with Ollama, no key, by default)
   whisprflow start               Same as above
   whisprflow stop                Stop
   whisprflow restart             Restart
