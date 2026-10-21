@@ -292,9 +292,10 @@
   width: var(--col-status);
 }
 
+/* At least the action column wide, so buttons line up across rows; wider when the label needs it ("Download 850 MB") rather than spilling out */
 .preset-action {
   flex: none;
-  width: var(--col-action);
+  min-width: var(--col-action);
 }
 
 .preset-gap {

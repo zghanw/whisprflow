@@ -51,25 +51,41 @@ export async function runScreens({ showOnboarding, onboardingWindow, showHub, hu
     showOnboarding();
     const onboarding = onboardingWindow();
     await settled(onboarding);
-    await capture(onboarding, "onboarding-start");
-    // Next until the prepare step shows (onboarding may start at the mode step or later)
-    for (let i = 0; i < 3; i++) {
-      if (await run(onboarding, `!document.querySelector('[data-step="prepare"]').hidden`)) break;
-      await run(onboarding, `document.getElementById("next").click()`);
-      await sleep(600);
+    // Onboarding resumes past finished steps: go back to the first one
+    for (let i = 0; i < 10; i++) {
+      const rewound = await run(
+        onboarding,
+        `(() => { const back = document.getElementById("back"); if (!back || back.disabled || back.hidden) return false; back.click(); return true; })()`,
+      );
+      if (!rewound) break;
+      await sleep(400);
     }
-    // Entering prepare checks Ollama; give the answer time to arrive
-    await sleep(1_500);
-    await capture(onboarding, "onboarding-prepare");
+    // Each step as it comes, pressing Next until a step waits for something only a person can do (pressing the hotkey, dictating)
+    const shown = new Set();
+    for (let i = 0; i < 10; i++) {
+      const step = await run(onboarding, `document.querySelector(".step:not([hidden])")?.dataset.step ?? null`);
+      if (step === null || shown.has(step)) break;
+      shown.add(step);
+      // Entering prepare checks Ollama, and the microphone step starts its meter: give them time to show
+      await sleep(step === "prepare" || step === "microphone" ? 1_500 : 400);
+      await capture(onboarding, `onboarding-${step}`);
+      const moved = await run(
+        onboarding,
+        `(() => { const next = document.getElementById("next"); if (!next || next.disabled || next.hidden) return false; next.click(); return true; })()`,
+      );
+      if (!moved) break;
+      await sleep(700);
+    }
     onboarding.close();
 
-    showHub({ pane: "dictionary" });
+    showHub({ route: "home" });
     const hub = hubWindow();
     await settled(hub, 1_500);
-    await capture(hub, "settings-dictionary");
-    await run(hub, `document.getElementById("settings").close()`);
-    await sleep(500);
     await capture(hub, "hub-home");
+    await run(hub, `document.getElementById("mode-trigger").click()`);
+    await sleep(600);
+    await capture(hub, "hub-mode-picker");
+    await run(hub, `document.getElementById("mode-picker").hidePopover()`);
     await run(hub, `document.querySelector('.nav-item[data-route="models"]').click()`);
     await sleep(800);
     await capture(hub, "hub-models");
@@ -82,6 +98,21 @@ export async function runScreens({ showOnboarding, onboardingWindow, showHub, hu
       await run(hub, `document.querySelectorAll('#plaza-tabs [role="tab"]')[${index}].click()`);
       await sleep(800);
       await capture(hub, name);
+    }
+    // Recommended setups opened over the Transcribe tab (the Keys tab shows where keys are stored on this computer)
+    await run(hub, `document.querySelectorAll('#plaza-tabs [role="tab"]')[1].click()`);
+    await sleep(500);
+    await run(hub, `document.getElementById("preset-trigger").click()`);
+    await sleep(800);
+    await capture(hub, "hub-presets");
+    await run(hub, `document.getElementById("preset-picker").hidePopover()`);
+    await run(hub, `document.querySelector('.nav-item[data-route="history"]').click()`);
+    await sleep(800);
+    await capture(hub, "hub-history");
+    for (const pane of ["general", "dictionary"]) {
+      showHub({ pane });
+      await sleep(900);
+      await capture(hub, `settings-${pane}`);
     }
     quit(0);
   } catch (error) {
