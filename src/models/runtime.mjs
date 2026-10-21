@@ -9,7 +9,8 @@ import { join } from "node:path";
 // Nothing here touches the system Python or the user's uv settings (--no-config), and nothing is left outside the model directory.
 //
 // Layout in the model directory: runtime/python (CPython), runtime/venv (the environment), profile (the unpacked model, what the server loads).
-// runtime/uv and runtime/cache exist only during the install.
+// runtime/uv and runtime/cache exist only during the install, and the downloaded files (the archive, uv) go once used: the receipt says what was
+// installed, and a reinstall downloads them again.
 
 export const UV_VERSION = "0.12.23";
 export const PYTHON_VERSION = "3.12.15";
@@ -197,5 +198,7 @@ export async function installRuntime({
   // The cache holds the unzipped packages, about as big as the environment. The environment's files are hard links into it where the disk allows, and stay
   rmSync(join(root, "cache"), { recursive: true, force: true });
   rmSync(uvDir, { recursive: true, force: true });
+  // The profile is unpacked and checked; the archive (164 MB) and uv's download aren't needed to run
+  for (const used of [model.files.archive, model.files.uv]) rmSync(join(dir, used.path), { force: true });
   onProgress(1);
 }

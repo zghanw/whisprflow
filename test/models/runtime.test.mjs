@@ -59,6 +59,8 @@ test("installing the runtime: extracts uv, makes a pinned CPython environment, i
   const dir = mkdtempSync(join(tmpdir(), "whisprflow-runtime-"));
   dirs.push(dir);
   // A half-finished earlier try is cleared first
+  writeFileSync(join(dir, "phonon-2.bps.tar.zst"), "archive");
+  writeFileSync(join(dir, "uv-x86_64-pc-windows-msvc.zip"), "uv");
   mkdirSync(join(dir, "runtime", "venv"), { recursive: true });
   writeFileSync(join(dir, "runtime", "venv", "stale"), "");
   const { ran, run } = fakeRun();
@@ -105,6 +107,9 @@ test("installing the runtime: extracts uv, makes a pinned CPython environment, i
   assert.equal(existsSync(join(root, "venv", "stale")), false);
   assert.equal(existsSync(join(root, "cache")), false);
   assert.equal(existsSync(join(root, "uv")), false);
+  // The downloads are gone once used
+  assert.equal(existsSync(join(dir, "phonon-2.bps.tar.zst")), false);
+  assert.equal(existsSync(join(dir, "uv-x86_64-pc-windows-msvc.zip")), false);
   assert.deepEqual(
     progress,
     [...progress].sort((a, b) => a - b),
