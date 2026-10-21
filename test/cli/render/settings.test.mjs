@@ -54,7 +54,7 @@ test("themes: one per line, the one in use marked; with 24-bit color the termina
   assert.match(text, /\n {2}● cinnabar\s+Cinnabar\s+A warm red/);
   assert.match(text, /Using Cinnabar \(cinnabar\) · from the settings file/);
   // The example given is another theme, not the one already in use
-  assert.match(text, /Switch: whisprflow theme ink/);
+  assert.match(text, /Switch: whisprflow theme violet/);
   assert.ok(!text.includes("\x1b["));
 
   const painted = renderThemes(view, { ...plain, color: true, truecolor: true });

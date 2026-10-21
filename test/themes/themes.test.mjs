@@ -34,7 +34,7 @@ test("ids and display names are unique; the default theme is registered; themes 
   }
   assert.deepEqual(
     THEMES.map((theme) => theme.id),
-    ["ink", "cinnabar", "indigo"],
+    ["violet", "ink", "cinnabar", "indigo"],
   );
   assert.equal(findTheme(DEFAULT_THEME).id, DEFAULT_THEME);
   assert.equal(findTheme("cinnabar").id, "cinnabar");

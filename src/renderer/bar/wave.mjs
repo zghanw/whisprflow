@@ -1,105 +1,90 @@
-// The floating bar's wave: bars stay in place, each word raises a wave from the very middle that passes bar by bar to both sides, lower toward the edges,
-// then settles back by itself. While speaking, words keep coming, so the middle bars keep jumping and it looks like a mountain, high in the middle and low at the sides, trembling.
-// Sound only raises waves in the middle, which spread to the sides and decay on their own, with a little randomness;
-// the parameters are calibrated to WhisprFlow's own volume levels.
-// Pure computation, never touching the page: feed a volume every 50 ms (hear), take heights once per frame (frame); the caller supplies the time.
+// The floating bar's wave, drawn the way Siri's is: one bright main curve and fainter echoes in mirrored pairs, all inside a bell-shaped envelope,
+// so the middle swells and the ends stay pinned. The voice sets the height: it rises at once and falls within about a tenth of a second between
+// syllables. Silence keeps a small, slow breathing motion, so the bar looks alive while it waits. Ported from WhisprFlow v1's pill.
+// Pure computation, never touching the page: feed a volume every 50 ms (hear), take the curves once per frame (frame); the caller supplies the time.
 
-/** How many bars the wave has in all. Odd: there is one in the very middle, where the wave starts */
-export const WAVE_BARS = 15;
+/** The curves, back to front: echoes in mirrored pairs (smallest first), the main curve last, on top */
+export const CURVES = Object.freeze([0.22, -0.22, 0.45, -0.45, 0.72, -0.72, 1]);
+/** Points per curve, evenly spaced across the width */
+export const POINTS = 37;
+/** The height when silent, as a share of full: the breathing floor */
+export const IDLE = 0.15;
 
-/** The flat height (as a share of the wave area's height): a row of small dots when silent */
-export const REST = 0.1;
+/** Between syllables the height falls by a factor of e every this long */
+const FALL_MS = 110;
+/** How fast each motion turns at full voice, in radians per second: sway (the carrier sliding), ripple (rings inside the envelope), lag (echoes drifting) */
+const SPEEDS = [2.8, 4.5, 1.7];
+/** Silence turns the motions at this share of full speed; half volume and up turns them at full speed */
+const RESTING_SPEED = 0.25;
+/** The envelope: a bell across the width with this spread (standard deviation, the width being 1) */
+const BELL = 0.22;
+/** Carrier waves across the width */
+const CYCLES = 2.6;
+/** The tallest a curve reaches before the ripple, as a share of the half-height: room for the ripple's crests */
+const REACH = 0.8;
 
 /** The page gets an 8-bit waveform, and this is the smallest step it can resolve: pauses in real recordings sit at this step */
 const QUIET = 1 / 128;
 /** The loudest volume. Speech in real recordings is usually 8 to 20 steps (0.06 to 0.16) */
 const LOUD = 0.19;
-/** Waves only rise at this loudness: three steps (0.023) and up. Pauses are one or two steps and raise none */
-const START = 0.3;
-/** Once speech is heard, at least half the volume raises the wave; louder raises more, up to 80%: rising fully every time would pin the middle bar to the top, hiding the gaps between words */
-const MIN_CHANCE = 0.5;
-const MAX_CHANCE = 0.8;
-/** How long it takes to reach the next bar. Reaching the very edge takes a hundred-odd milliseconds, so the spread from the middle is visible */
-const STEP_MS = 14;
-/** How fast bars settle: every this long, the distance above flat halves. In the gaps between words they drop a good way */
-const HALF_LIFE_MS = 220;
-/** Each frame jitters a little, up or down by this much (relative to the part above flat) */
-const JITTER = 0.06;
-/** The edge bar's lowest height as a share of the middle */
-const EDGE = 0.15;
-/** This close to flat counts as flat, so invisible changes aren't drawn forever */
-const SETTLED = 0.01;
 
-/** How loud a volume is: by how many times louder than the smallest step (logarithmic), 0 to 1. Speech volumes crowd into a very low band and would all be short if used directly */
-function loudness(level) {
+/** How loud a volume is, 0 to 1, by how many times louder than the smallest step (logarithmic): speech crowds into a low band and would all look short if used directly */
+export function loudness(level) {
   if (level <= QUIET) return 0;
   return Math.min(1, Math.log(level / QUIET) / Math.log(LOUD / QUIET));
 }
 
-/** How high a bar has settled to after this many milliseconds */
-function fade(height, ms) {
-  return REST + (height - REST) * 0.5 ** (ms / HALF_LIFE_MS);
-}
-
-/**
- * @param {object} options
- * @param {number} options.bars how many bars
- * @param {() => number} [options.random] a random number from 0 to 1, replaced with a fixed one in tests
- */
-export function createWave({ bars, random = Math.random }) {
-  const middle = Math.floor(bars / 2);
-  const between = (low, high) => low + random() * (high - low);
-  /** How high each bar is now */
-  let heights = Array(bars).fill(REST);
-  /** Waves raised but not arrived yet: { bar, height, at } */
-  let arrivals = [];
+export function createWave() {
+  /** The envelope's height now, IDLE to 1 */
+  let height = IDLE;
+  /** sway, ripple, lag */
+  let phases = [0, 0, 0];
   /** The time of the last frame. null before the first */
   let last = null;
 
   return {
-    /** Hears a volume (0 to 1), time in milliseconds */
-    hear(level, now) {
-      const loud = loudness(level);
-      if (loud < START || random() >= Math.min(MAX_CHANCE, MIN_CHANCE + loud - START)) return;
-      const peak = Math.min(1, (0.4 + 0.6 * loud) * between(0.9, 1.1));
-      // The start occasionally shifts by one bar, so the left and right sides aren't always identical
-      const center = middle + Math.round((random() - 0.5) * 2);
-      for (let bar = 0; bar < bars; bar++) {
-        const distance = Math.abs(bar - center);
-        const side = Math.max(1, bar < center ? center : bars - 1 - center);
-        const falloff = Math.max(EDGE, 1 - (distance / side) * between(0.65, 0.75));
-        arrivals.push({
-          bar,
-          height: Math.min(1, Math.max(REST, peak * falloff * between(0.9, 1.1))),
-          at: now + distance * STEP_MS * between(1, 1.3),
-        });
-      }
+    /** Hears a volume (0 to 1): a louder one lifts the wave at once */
+    hear(level) {
+      height = Math.max(height, loudness(level));
     },
 
-    /** How high each bar should be at this moment (0 to 1), left to right */
-    frame(now) {
+    /**
+     * The curves at this moment, back to front. Each point is [x, y]: x from 0 to 1 across, y from -1 to 1 (up is positive, 1 the half-height)
+     * @param {number} now milliseconds
+     * @param {{ still?: boolean }} [options] still: the motions stop (reduce motion); the height still follows the voice
+     * @returns {Array<{ scale: number, main: boolean, points: number[][] }>}
+     */
+    frame(now, { still = false } = {}) {
       const since = last === null ? 0 : Math.max(0, now - last);
       last = now;
-      heights = heights.map((height) => {
-        const above = fade(height, since) - REST;
-        if (above < SETTLED) return REST;
-        return Math.min(1, REST + above * (1 + (random() - 0.5) * 2 * JITTER));
+      height = Math.max(IDLE, height * Math.exp(-since / FALL_MS));
+      if (!still) {
+        const speed = RESTING_SPEED + (1 - RESTING_SPEED) * Math.min(1, (height - IDLE) / 0.5);
+        phases = phases.map((phase, i) => phase + ((SPEEDS[i] * since) / 1000) * speed);
+      }
+      const [sway, ripple, lag] = phases;
+      const slide = 0.5 * Math.sin(sway);
+      return CURVES.map((scale, j) => {
+        const main = scale === 1;
+        // Echoes drift against the main curve and flex in height, each on its own beat, so the pairs never move as one block
+        const drift = 0.9 * (1 - Math.abs(scale)) * Math.sin(lag + j);
+        const flex = main ? 1 : 0.65 + 0.45 * Math.abs(Math.sin(lag * 0.7 + j * 1.3));
+        const points = Array.from({ length: POINTS }, (_, k) => {
+          const x = k / (POINTS - 1);
+          const off = Math.abs(x - 0.5);
+          const bell = Math.exp(-(off * off) / (2 * BELL * BELL));
+          const rings = 1 - 0.22 * Math.cos(2 * Math.PI * 2.2 * off - ripple);
+          const carrier = Math.cos(2 * Math.PI * CYCLES * (x - 0.5) + slide + drift);
+          return [x, scale * flex * height * REACH * bell * rings * carrier];
+        });
+        return { scale, main, points };
       });
-      arrivals = arrivals.filter(({ bar, height, at }) => {
-        if (at > now) return true;
-        // Arrived: bars lower than it jump up to it; bars higher get pulled down a bit, so the new word shows.
-        // Waves that arrived between two frames settle by how long they have been there, so fast and slow frames draw the same
-        const arrived = fade(height, now - at);
-        heights[bar] = Math.max(arrived, heights[bar] * 0.3 + arrived * 0.7);
-        return false;
-      });
-      return [...heights];
     },
 
-    /** Stop drawing: everything lies flat, and waves not yet arrived are dropped */
+    /** Starts over: silent, motions at their start */
     reset() {
-      heights = Array(bars).fill(REST);
-      arrivals = [];
+      height = IDLE;
+      phases = [0, 0, 0];
       last = null;
     },
   };

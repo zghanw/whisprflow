@@ -89,6 +89,7 @@
 
 .unit {
   font-size: var(--text-micro);
+  letter-spacing: var(--track-micro);
   font-weight: var(--weight-medium);
   color: var(--ink-2);
 }
@@ -150,6 +151,7 @@
 .group-name {
   margin: 0;
   font-size: var(--text-heading);
+  letter-spacing: var(--track-heading);
   font-weight: var(--weight-semibold);
   line-height: 1.3;
 }
@@ -175,6 +177,7 @@
 
 .channel-label {
   font-size: var(--text-micro);
+  letter-spacing: var(--track-micro);
   font-weight: var(--weight-medium);
   color: var(--ink-2);
 }
@@ -375,6 +378,7 @@
 .plaza-note {
   margin: 2.5rem 0 1rem;
   font-size: var(--text-micro);
+  letter-spacing: var(--track-micro);
   color: var(--ink-2);
 }
 
@@ -431,6 +435,7 @@
     content: attr(data-label);
     order: -1;
     font-size: var(--text-micro);
+    letter-spacing: var(--track-micro);
     font-weight: var(--weight-medium);
     color: var(--ink-2);
   }

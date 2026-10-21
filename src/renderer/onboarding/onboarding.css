@@ -92,7 +92,7 @@ body {
   max-width: 62rem;
   min-height: 100%;
   margin: 0 auto;
-  animation: step-in var(--dur-slow) var(--ease-out);
+  animation: step-in var(--dur-spring) var(--ease-spring);
 }
 
 @keyframes step-in {
@@ -107,9 +107,9 @@ body {
   /* CJK titles only break at punctuation and spaces, so words aren't split across lines */
   word-break: keep-all;
   font-size: var(--text-display);
+  letter-spacing: var(--track-display);
   font-weight: var(--weight-bold);
   line-height: 1.25;
-  letter-spacing: -0.02em;
   text-wrap: balance;
 }
 
@@ -267,6 +267,7 @@ body {
   align-items: center;
   gap: 0.3rem;
   font-size: var(--text-micro);
+  letter-spacing: var(--track-micro);
   font-weight: var(--weight-medium);
   color: var(--ink-2);
 }
@@ -754,6 +755,7 @@ body {
   padding: 0 1.5rem;
   font: inherit;
   font-size: var(--text-figure);
+  letter-spacing: var(--track-figure);
   font-family: var(--font-rounded);
   font-weight: var(--weight-semibold);
   background: var(--surface-solid);

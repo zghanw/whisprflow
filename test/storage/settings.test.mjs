@@ -47,7 +47,7 @@ test("with no file and no environment, everything is a default", () => {
     modelSource: { value: "original", source: "default" },
     acceleration: { value: "auto", source: "default" },
     barHint: { value: "on", source: "default" },
-    theme: { value: "ink", source: "default" },
+    theme: { value: "violet", source: "default" },
     language: { value: "system", source: "default" },
   });
 });
@@ -144,8 +144,8 @@ test("theme: by id or by name, saved as the id; an unknown one is refused, listi
     value: "cinnabar",
     source: "env",
   });
-  assert.throws(() => saveSetting(file, "theme", "neon"), said(/ink \/ cinnabar \/ indigo/));
-  assert.deepEqual(SETTINGS.theme.choices, ["ink", "cinnabar", "indigo"]);
+  assert.throws(() => saveSetting(file, "theme", "neon"), said(/violet \/ ink \/ cinnabar \/ indigo/));
+  assert.deepEqual(SETTINGS.theme.choices, ["violet", "ink", "cinnabar", "indigo"]);
 });
 
 test("described settings: the hotkey shows the key name, the theme its name, in the UI language; a language shows its own name", () => {
@@ -185,7 +185,8 @@ test("error wording follows the UI language", () => {
   assert.throws(
     () => resolveSettings({ file, env: { WHISPRFLOW_THEME: "neon" } }),
     (error) =>
-      en.text(error.problem) === 'The WHISPRFLOW_THEME env var is "neon": must be one of ink / cinnabar / indigo',
+      en.text(error.problem) ===
+      'The WHISPRFLOW_THEME env var is "neon": must be one of violet / ink / cinnabar / indigo',
   );
 });
 

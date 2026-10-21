@@ -23,6 +23,14 @@
   --text-small: 0.8125rem;
   --text-micro: 0.6875rem;
 
+  /* Tracking goes with size, never one value for all: large type tightens (its letters read too far apart as it grows), body stays at 0,
+     and the smallest size loosens a touch to stay legible. Each rule that sets one of these sizes sets its tracking too */
+  --track-display: -0.022em;
+  --track-figure: -0.015em;
+  --track-title: -0.015em;
+  --track-heading: -0.01em;
+  --track-micro: 0.01em;
+
   /* Body 400; buttons, navigation, tags 500; names, section titles, values 600; page and dialog titles 700 */
   --weight-regular: 400;
   --weight-medium: 500;
@@ -58,7 +66,32 @@
   --dur-fast: 120ms;
   --dur-base: 200ms;
   --dur-slow: 320ms;
-  /* Category tab underlines and segmented control thumbs slide from the previous position */
-  --dur-slide: 280ms;
   --ease-out: cubic-bezier(0.25, 1, 0.5, 1);
+  /* Things that move (tab underlines, segment thumbs, switch knobs, toasts, popovers) move on a spring, tuned the way Apple tunes its defaults:
+     critically damped (arrives without overshoot) with a 0.35 s response. linear() traces x(t) = 1 - (1 + wt)e^(-wt), w = 2pi / 0.35 s, which
+     settles within --dur-spring. Redirected mid-flight, a transition starts from where the thing is on screen */
+  --ease-spring: linear(
+    0,
+    0.045 5%,
+    0.145 10%,
+    0.265 15%,
+    0.387 20%,
+    0.499 25%,
+    0.598 30%,
+    0.681 35%,
+    0.751 40%,
+    0.807 45%,
+    0.852 50%,
+    0.888 55%,
+    0.916 60%,
+    0.938 65%,
+    0.955 70%,
+    0.969 75%,
+    0.979 80%,
+    0.986 85%,
+    0.992 90%,
+    0.997 95%,
+    1
+  );
+  --dur-spring: 370ms;
 }

@@ -63,6 +63,7 @@ export default {
   },
 
   themes: {
+    violet: { name: "Violet", describe: "The app icon's purple on the wave and the main buttons" },
     ink: { name: "Ink", describe: "Black and white. Shape and motion show the state; color only for errors" },
     cinnabar: { name: "Cinnabar", describe: "A warm red on the wave and the main buttons" },
     indigo: { name: "Indigo", describe: "Color shows the stage: green listening, indigo refining, amber trouble" },

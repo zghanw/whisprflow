@@ -2,8 +2,9 @@
 // What it should look like is computed in bar-view.mjs; this only draws. It knows nothing of recording or the network and never talks to the main process directly:
 // the two things the host does for it are given by the caller. Moving to another shell later, this file and bar.css stay as they are; only those two functions change.
 
+import { toRgb } from "../../themes/color.mjs";
 import { controlsIn, hintFor, LINGER_MS, View } from "./bar-view.mjs";
-import { createWave, REST, WAVE_BARS } from "./wave.mjs";
+import { createWave } from "./wave.mjs";
 
 /** How many bars the refining wave has */
 const THINK_BARS = 11;
@@ -13,6 +14,16 @@ const FADE_OUT_MS = 200;
 const HIT_SLOP = 6;
 /** With "reduce motion" on in the system, the wave is drawn only this often */
 const REDUCED_MOTION_MS = 200;
+/** Line widths in CSS pixels: the main curve, and the echoes behind it */
+const MAIN_WIDTH = 2;
+const ECHO_WIDTH = 1.1;
+/** Room left above and below so the main curve's stroke stays inside the canvas */
+const WAVE_PAD = 1.5;
+/** The curves fade in over this share of the width at each end, so they rise out of the bar instead of running into the buttons as lines */
+const WAVE_FADE = 0.2;
+
+/** How strongly an echo shows: the outer ones (larger scale) nearly as strong as the main curve, the inner ones fainter */
+const echoAlpha = (scale) => 0.85 - 0.55 * (1 - Math.abs(scale));
 
 /**
  * @param {object} options
@@ -41,9 +52,10 @@ export function createBarUi({ document, host, keycap: initialKeycap, t: initialT
     document.getElementById(id).replaceChildren(...bars);
     return bars;
   };
-  const waveBars = makeBars("wave", WAVE_BARS);
   // Each bar starts a little later than the last, so together they make one rolling wave
   for (const [index, bar] of makeBars("think", THINK_BARS).entries()) bar.style.setProperty("--i", index);
+  const canvas = document.getElementById("wave");
+  const context = canvas.getContext("2d");
 
   /** The view drawn now. hidden once the bar is put away */
   let view = View.HIDDEN;
@@ -51,9 +63,11 @@ export function createBarUi({ document, host, keycap: initialKeycap, t: initialT
   let controls = false;
   /** Whether the hint above the bar is shown (barHint in the settings) */
   let hintShown = true;
-  const wave = createWave({ bars: WAVE_BARS });
-  /** While listening the wave is drawn every frame; null when not listening */
+  const wave = createWave();
+  /** While the microphone opens and while listening the wave is drawn every frame; null otherwise */
   let waveFrame = null;
+  /** The wave's color as red, green, blue, read from the theme each time the wave starts */
+  let waveRgb = [255, 255, 255];
   /** When the wave was last drawn */
   let drawnAt = -Infinity;
   /** The regions the host is capturing, as one line of text for easy comparison; null when not capturing */
@@ -61,32 +75,66 @@ export function createBarUi({ document, host, keycap: initialKeycap, t: initialT
   /** The timer that puts the bar away when time is up */
   let hideTimer = null;
 
-  function drawWave(heights) {
-    for (const [index, bar] of waveBars.entries()) bar.style.setProperty("--h", heights[index].toFixed(3));
+  /** Draws the curves at the canvas's size on screen, sharp on high-density displays */
+  function drawWave(curves) {
+    const ratio = window.devicePixelRatio || 1;
+    const width = canvas.clientWidth;
+    const height = canvas.clientHeight;
+    if (canvas.width !== Math.round(width * ratio) || canvas.height !== Math.round(height * ratio)) {
+      canvas.width = Math.round(width * ratio);
+      canvas.height = Math.round(height * ratio);
+    }
+    context.setTransform(ratio, 0, 0, ratio, 0, 0);
+    context.clearRect(0, 0, width, height);
+    const color = (alpha) => `rgb(${waveRgb.join(" ")} / ${alpha})`;
+    const stroke = context.createLinearGradient(0, 0, width, 0);
+    stroke.addColorStop(0, color(0));
+    stroke.addColorStop(WAVE_FADE, color(1));
+    stroke.addColorStop(1 - WAVE_FADE, color(1));
+    stroke.addColorStop(1, color(0));
+    context.strokeStyle = stroke;
+    context.lineCap = "round";
+    context.lineJoin = "round";
+    const middle = height / 2;
+    const half = middle - WAVE_PAD;
+    for (const { scale, main, points } of curves) {
+      context.globalAlpha = main ? 1 : echoAlpha(scale);
+      context.lineWidth = main ? MAIN_WIDTH : ECHO_WIDTH;
+      context.beginPath();
+      for (const [index, [x, y]] of points.entries()) {
+        if (index === 0) context.moveTo(x * width, middle - y * half);
+        else context.lineTo(x * width, middle - y * half);
+      }
+      context.stroke();
+    }
+    context.globalAlpha = 1;
   }
 
   function animateWave(now) {
-    const heights = wave.frame(now);
-    // With reduced motion the wave still moves (it tells people "I hear you"), just drawn less often
+    // With reduced motion the wave stops swaying but still follows the voice (it tells people "I hear you"), drawn less often
+    const curves = wave.frame(now, { still: reducedMotion.matches });
     if (!reducedMotion.matches || now - drawnAt >= REDUCED_MOTION_MS) {
-      drawWave(heights);
+      drawWave(curves);
       drawnAt = now;
     }
     waveFrame = window.requestAnimationFrame(animateWave);
   }
 
-  /** On entering "listening", draw frame by frame starting flat; on leaving, stop and lay everything flat. When putting away, only stop, and fade out as it was when stopped */
+  /**
+   * The wave runs while the microphone opens (breathing, no voice yet) and while listening; it starts over only when it starts, so going from one to the
+   * other carries on from where it is. Any other view stops it; the canvas fades out as it was when stopped
+   */
   function syncWave() {
-    if (view === View.RECORDING) {
+    if (view === View.STARTING || view === View.RECORDING) {
       if (waveFrame === null) {
         wave.reset();
+        waveRgb = toRgb(window.getComputedStyle(canvas).color);
         waveFrame = window.requestAnimationFrame(animateWave);
       }
       return;
     }
     if (waveFrame !== null) window.cancelAnimationFrame(waveFrame);
     waveFrame = null;
-    if (view !== View.HIDDEN) drawWave(Array(WAVE_BARS).fill(REST));
   }
 
   function drawHint() {
@@ -163,7 +211,7 @@ export function createBarUi({ document, host, keycap: initialKeycap, t: initialT
     /** One instantaneous volume while listening (0 to 1) */
     level(value) {
       if (view !== View.RECORDING) return;
-      wave.hear(value, window.performance.now());
+      wave.hear(value);
     },
 
     /** Whether the two buttons can be clicked and esc can be captured (needs Accessibility permission). When not, no buttons are drawn and the hint doesn't mention esc */

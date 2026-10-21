@@ -5,6 +5,8 @@
 // Usage: node scripts/dev/screens.mjs <output directory>
 // Settings can be given as environment variables, as for the app (WHISPRFLOW_MODE, WHISPRFLOW_POLISH, WHISPRFLOW_THEME, ...):
 //   WHISPRFLOW_POLISH=ollama/llama3.2:1b node scripts/dev/screens.mjs shots   (cleanup model not pulled in Ollama)
+// WHISPRFLOW_SCREENS_MEDIA emulates media features, comma-separated:
+//   WHISPRFLOW_SCREENS_MEDIA=prefers-color-scheme=dark,prefers-contrast=more node scripts/dev/screens.mjs shots
 
 import { spawn } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";

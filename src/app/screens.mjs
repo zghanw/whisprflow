@@ -6,6 +6,15 @@ import { join } from "node:path";
 // For checking how the pages look without clicking through them by hand.
 
 const OUT_DIR = process.env.WHISPRFLOW_SCREENS_OUT;
+/** Media features to emulate, as name=value pairs separated by commas (prefers-color-scheme=dark,prefers-contrast=more), so dark mode and the
+ * accessibility preferences can be checked without changing the system's settings */
+const MEDIA = (process.env.WHISPRFLOW_SCREENS_MEDIA ?? "")
+  .split(",")
+  .filter(Boolean)
+  .map((pair) => {
+    const [name, value] = pair.split("=");
+    return { name: name.trim(), value: value.trim() };
+  });
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -13,6 +22,10 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 async function settled(window, ms = 1_000) {
   if (window.webContents.isLoading())
     await new Promise((resolve) => window.webContents.once("did-finish-load", resolve));
+  if (MEDIA.length > 0) {
+    window.webContents.debugger.attach();
+    await window.webContents.debugger.sendCommand("Emulation.setEmulatedMedia", { features: MEDIA });
+  }
   await sleep(ms);
 }
 

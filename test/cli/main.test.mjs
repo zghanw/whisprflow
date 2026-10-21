@@ -1115,11 +1115,12 @@ test("config unset returns to the default", async () => {
 test("theme lists the themes, marking the one in use and how to change", async () => {
   const { whisprflow, output, daemon } = harness();
   assert.equal(await whisprflow("theme"), 0);
-  assert.match(output.out, /● ink\s+Ink/);
+  assert.match(output.out, /● violet\s+Violet/);
+  assert.match(output.out, / {4}ink\s+Ink/);
   assert.match(output.out, / {4}cinnabar\s+Cinnabar/);
   assert.match(output.out, / {4}indigo\s+Indigo/);
-  assert.match(output.out, /Using Ink \(ink\).*default/);
-  assert.match(output.out, /whisprflow theme cinnabar/);
+  assert.match(output.out, /Using Violet \(violet\).*default/);
+  assert.match(output.out, /whisprflow theme ink/);
   assert.deepEqual(daemon.calls, []);
 });
 
@@ -1181,7 +1182,7 @@ test("config set theme / config unset theme switch at once like the theme comman
   assert.match(output.out, /Applied/);
   assert.equal(await whisprflow("config", "unset", "theme"), 0);
   assert.deepEqual(daemon.calls, ["reload-theme", "reload-theme"]);
-  assert.match(output.out, /theme reset to the default, ink/);
+  assert.match(output.out, /theme reset to the default, violet/);
 });
 
 // ---------- UI language ----------
@@ -1190,7 +1191,10 @@ test("help, the panel, and usage errors are all in English", async () => {
   const { whisprflow, output } = harness({ daemon: fakeDaemon({ running: READY }), locale: "en" });
   assert.equal(await whisprflow("help"), 0);
   assert.match(output.out, /^WhisprFlow: press a hotkey, speak/);
-  assert.match(output.out, /whisprflow theme <name> +Switch theme \(ink Ink \/ cinnabar Cinnabar \/ indigo Indigo\)/);
+  assert.match(
+    output.out,
+    /whisprflow theme <name> +Switch theme \(violet Violet \/ ink Ink \/ cinnabar Cinnabar \/ indigo Indigo\)/,
+  );
   assert.match(output.out, /latest 20 by default/);
 
   assert.equal(await whisprflow("status"), 0);

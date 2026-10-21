@@ -126,7 +126,7 @@
 }
 
 .picker:popover-open {
-  animation: picker-in var(--dur-base) var(--ease-out);
+  animation: picker-in var(--dur-spring) var(--ease-spring);
 }
 
 @keyframes picker-in {
@@ -154,6 +154,7 @@
 
 .picker-meta {
   font-size: var(--text-micro);
+  letter-spacing: var(--track-micro);
   color: var(--ink-2);
 }
 

@@ -58,6 +58,22 @@
   }
 }
 
+/* With "more contrast" on: solid surfaces instead of glass, and dividers, outlines, and selections drawn at full strength */
+@media (prefers-contrast: more) {
+  :root {
+    --surface: var(--surface-solid);
+    --glass: var(--bg);
+    --glass-strong: var(--bg);
+    --glass-filter: none;
+    --line: color-mix(in oklch, var(--ink) 45%, transparent);
+    --fill-hover: color-mix(in oklch, var(--ink) 12%, transparent);
+    --fill-selected: color-mix(in oklch, var(--ink) 20%, transparent);
+    --edge: 0 0 0 1px var(--ink-2);
+    --ring: 0 0 0 1px var(--ink-2);
+    --ring-strong: 0 0 0 2px var(--ink);
+  }
+}
+
 *,
 *::before,
 *::after {
@@ -96,6 +112,7 @@ body {
   align-items: center;
   padding: 0.0625rem 0.45rem;
   font-size: var(--text-micro);
+  letter-spacing: var(--track-micro);
   font-weight: var(--weight-medium);
   line-height: 1.5;
   color: var(--ink-2);
@@ -199,8 +216,16 @@ p {
     0 1px 3px oklch(0 0 0 / 0.08);
 }
 
-.button:active:not(:disabled) {
+/* Feedback lands on the press, not the release: what the pointer goes down on answers at once (no transition in), and eases back on release.
+   Buttons and chips shrink a touch; rows and list entries darken a step past their hover */
+:is(.button, .tab, .pill, .picker-trigger, .icon-button, .page-arrow):active:not(:disabled) {
   scale: 0.97;
+  transition-duration: 0s;
+}
+
+:is(.nav-item, .menu-item, .picker-option, .entry, .choice, .step-groups button, .vendor-head):active:not(:disabled) {
+  background-color: var(--fill-selected);
+  transition-duration: 0s;
 }
 
 .button:disabled {
@@ -335,7 +360,7 @@ p {
   background: var(--bg);
   border-radius: 50%;
   box-shadow: 0 1px 2px oklch(0 0 0 / 0.25);
-  transition: translate var(--dur-base) var(--ease-out);
+  transition: translate var(--dur-spring) var(--ease-spring);
 }
 
 .switch:checked {
@@ -578,6 +603,7 @@ button.badge:focus-visible {
 .callout code {
   font-family: var(--font-mono);
   font-size: var(--text-micro);
+  letter-spacing: var(--track-micro);
   color: var(--ink-2);
 }
 
@@ -693,6 +719,7 @@ button.badge:focus-visible {
   height: 1.125rem;
   padding: 0 0.375rem;
   font-size: var(--text-micro);
+  letter-spacing: var(--track-micro);
   font-weight: var(--weight-semibold);
   line-height: 1;
   color: var(--ink-2);
@@ -719,8 +746,8 @@ button.badge:focus-visible {
   translate: var(--x, 0) 0;
   pointer-events: none;
   transition:
-    translate var(--dur-slide) var(--ease-out),
-    width var(--dur-slide) var(--ease-out);
+    translate var(--dur-spring) var(--ease-spring),
+    width var(--dur-spring) var(--ease-spring);
 }
 
 .tabs > .indicator {
@@ -831,6 +858,7 @@ button.badge:focus-visible {
 
 .pill-count {
   font-size: var(--text-micro);
+  letter-spacing: var(--track-micro);
   font-weight: var(--weight-semibold);
   color: var(--ink-2);
   font-variant-numeric: tabular-nums;
@@ -920,6 +948,7 @@ button.badge:focus-visible {
   min-height: 0;
   padding-block: 0.625rem 0.5rem;
   font-size: var(--text-micro);
+  letter-spacing: var(--track-micro);
   font-weight: var(--weight-medium);
   color: var(--ink-2);
 }
@@ -975,6 +1004,7 @@ button.badge:focus-visible {
 .metric-unit,
 .metric-cur {
   font-size: var(--text-micro);
+  letter-spacing: var(--track-micro);
   font-weight: var(--weight-medium);
   color: var(--ink-2);
 }
@@ -1027,7 +1057,7 @@ button.badge:focus-visible {
     transition: none;
   }
 
-  .button:active:not(:disabled) {
+  :is(.button, .tab, .pill, .picker-trigger, .icon-button, .page-arrow):active:not(:disabled) {
     scale: none;
   }
 
