@@ -1,7 +1,7 @@
 {
   "name": "whisprflow",
   "productName": "WhisprFlow",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "private": true,
   "description": "Voice dictation for Windows and macOS: press a hotkey, speak, and clean text lands in the current input. Runs on-device with Ollama, or with your own Gemini or OpenAI key",
   "license": "MIT",

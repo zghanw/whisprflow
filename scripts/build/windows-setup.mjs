@@ -38,6 +38,49 @@ export function setupTrailer(payloadBytes) {
 export const fileVersion = (version) => `${/^\d+\.\d+\.\d+/.exec(version)[0]}.0`;
 
 /**
+ * Gives the runtime's electron.exe WhisprFlow's name and icon. Windows takes the taskbar name, the icon of a pinned button, and the name in
+ * Task Manager from the exe, so without this they say Electron. Only the icon group and version info (both resource #1, as Electron ships them)
+ * are replaced; the manifest and everything else stay as they are
+ * @param {{ packageDir: string, exe: string, version: string, run?: typeof execFileSync }} options
+ */
+export function brandRuntime({ packageDir, exe, version, run = execFileSync }) {
+  const work = mkdtempSync(join(tmpdir(), "whisprflow-brand-"));
+  try {
+    copyFileSync(join(packageDir, "assets", "icon.ico"), join(work, "icon.ico"));
+    const resources = {
+      RT_GROUP_ICON: { "#1": { "0409": "icon.ico" } },
+      RT_VERSION: {
+        "#1": {
+          "0409": {
+            fixed: { file_version: fileVersion(version), product_version: fileVersion(version) },
+            info: {
+              "0409": {
+                CompanyName: "zghanw",
+                FileDescription: "WhisprFlow",
+                FileVersion: version,
+                InternalName: "WhisprFlow",
+                LegalCopyright: "MIT License",
+                OriginalFilename: "electron.exe",
+                ProductName: "WhisprFlow",
+                ProductVersion: version,
+              },
+            },
+          },
+        },
+      },
+    };
+    writeFileSync(join(work, "winres.json"), JSON.stringify(resources, null, 2));
+    run(
+      goCommand(packageDir, process.platform),
+      ["run", GO_WINRES, "patch", "--in", join(work, "winres.json"), "--no-backup", "--authenticode", "remove", exe],
+      { cwd: join(packageDir, "native", "windows-setup"), stdio: "inherit" },
+    );
+  } finally {
+    rmSync(work, { recursive: true, force: true });
+  }
+}
+
+/**
  * @param {object} options
  * @param {string} options.packageDir the repository root
  * @param {string} options.version the version (from package.json, without v)

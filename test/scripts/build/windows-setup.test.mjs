@@ -3,7 +3,13 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, test } from "node:test";
-import { buildWindowsSetup, fileVersion, SETUP_MAGIC, setupTrailer } from "../../../scripts/build/windows-setup.mjs";
+import {
+  brandRuntime,
+  buildWindowsSetup,
+  fileVersion,
+  SETUP_MAGIC,
+  setupTrailer,
+} from "../../../scripts/build/windows-setup.mjs";
 import { tarCommand } from "../../../src/models/runtime.mjs";
 
 let dir;
@@ -85,4 +91,35 @@ test("layout: the program first, then a stored zip (install.ps1, and the package
     "install.ps1=& { 'install' }\n|latest/download/latest=v0.9.0\n|download/v0.9.0/whisprflow-win32-x64.zip=program package|download/v0.9.0/whisprflow-win32-x64.zip.sha256=abc  whisprflow-win32-x64.zip\n",
   );
   assert.equal(existsSync(join(source, "rsrc_windows_amd64.syso")), false);
+});
+
+test("the runtime is branded: go-winres patches electron.exe's icon and version info in place, nothing else, leaving no backup", () => {
+  const packageDir = join(dir, "repo");
+  mkdirSync(join(packageDir, "assets"), { recursive: true });
+  writeFileSync(join(packageDir, "assets", "icon.ico"), "icon");
+  const exe = join(dir, "runtime", "electron.exe");
+  let call = null;
+  const run = (command, args, options) => {
+    const json = args[args.indexOf("--in") + 1];
+    call = {
+      command,
+      args,
+      options,
+      resources: JSON.parse(readFileSync(json, "utf8")),
+      icon: readFileSync(join(json, "..", "icon.ico"), "utf8"),
+    };
+  };
+  brandRuntime({ packageDir, exe, version: "2.0.1", run });
+
+  const patch = call.args.indexOf("patch");
+  assert.ok(patch > 0, "go-winres patch");
+  assert.deepEqual(call.args.slice(patch + 3), ["--no-backup", "--authenticode", "remove", exe]);
+  assert.deepEqual(Object.keys(call.resources).sort(), ["RT_GROUP_ICON", "RT_VERSION"]);
+  assert.deepEqual(call.resources.RT_GROUP_ICON, { "#1": { "0409": "icon.ico" } });
+  assert.equal(call.icon, "icon");
+  const { fixed, info } = call.resources.RT_VERSION["#1"]["0409"];
+  assert.deepEqual(fixed, { file_version: "2.0.1.0", product_version: "2.0.1.0" });
+  assert.equal(info["0409"].FileDescription, "WhisprFlow");
+  assert.equal(info["0409"].ProductName, "WhisprFlow");
+  assert.equal(info["0409"].ProductVersion, "2.0.1");
 });

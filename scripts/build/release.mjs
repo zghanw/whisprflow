@@ -18,7 +18,7 @@ import { downloadArtifact } from "@electron/get";
 import { buildHelper } from "../../src/cli/native-helper.mjs";
 import { tarCommand } from "../../src/models/runtime.mjs";
 import { APP_ENTRIES, stageApp } from "./stage-app.mjs";
-import { buildWindowsSetup } from "./windows-setup.mjs";
+import { brandRuntime, buildWindowsSetup } from "./windows-setup.mjs";
 
 /** What the installed program needs besides what the background app reads: the CLI entry and the licenses */
 const RELEASE_ENTRIES = [...APP_ENTRIES, "bin", "LICENSE", "THIRD_PARTY_NOTICES.md"];
@@ -58,6 +58,7 @@ try {
   const runtime = join(staging, "runtime");
   mkdirSync(runtime);
   execFileSync(tarCommand(), ["-xf", electronZip, "-C", runtime]);
+  brandRuntime({ packageDir, exe: join(runtime, "electron.exe"), version });
 
   const archive = join(files, ARCHIVE);
   execFileSync(tarCommand(), ["--format", "zip", "-cf", archive, "-C", staging, "app", "runtime"]);

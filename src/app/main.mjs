@@ -138,7 +138,25 @@ async function askMicrophone() {
 }
 
 // Windows identifies the app by this id: the taskbar groups windows by it and notifications name it. The same as the macOS bundle identifier
-if (WINDOWS) app.setAppUserModelId("com.zghanw.whisprflow");
+const APP_ID = "com.zghanw.whisprflow";
+if (WINDOWS) app.setAppUserModelId(APP_ID);
+
+/**
+ * How the taskbar names this window's button and how a pinned button starts the app again. Without these Windows takes both from the runtime
+ * (electron.exe), and a pinned button would start Electron on its own. Relaunching runs the runtime with this app's directory, as the Start menu shortcut does.
+ * ponytail: Windows silently drops a relaunch command of roughly 200 characters or more (measured); a default install's is about 100, and only a very
+ * deep WHISPRFLOW_HOME reaches the limit, where pinning falls back to the runtime alone
+ */
+function setTaskbarDetails(window) {
+  if (!WINDOWS) return;
+  window.setAppDetails({
+    appId: APP_ID,
+    appIconPath: WINDOW_ICON,
+    appIconIndex: 0,
+    relaunchCommand: `"${process.execPath}" "${app.getAppPath()}"`,
+    relaunchDisplayName: "WhisprFlow",
+  });
+}
 
 // Everything lives in the one directory paths.mjs defines, shared with the CLI. Electron by default makes another directory named after the app
 // under ~/Library/Application Support for Chromium's cache and state; that goes in here too, kept apart from our data
@@ -1018,6 +1036,7 @@ async function main() {
       ...frame({ x: 26, y: 24 }),
       webPreferences,
     });
+    setTaskbarDetails(window);
     // Where the first open goes is in the address: messages sent before the page loads are lost
     const query = Object.fromEntries(Object.entries(target).filter(([, value]) => value));
     window.loadFile(join(sourceDir, "renderer", "hub", "hub.html"), { query });
@@ -1042,6 +1061,7 @@ async function main() {
         ...frame({ x: 20, y: 16 }),
         webPreferences,
       });
+      setTaskbarDetails(onboardingWindow);
       onboardingWindow.loadFile(join(sourceDir, "renderer", "onboarding", "onboarding.html"));
       onboardingWindow.on("focus", () => {
         // The user most likely turned on a switch in System Settings and came back: the two permissions need a helper restart to show.

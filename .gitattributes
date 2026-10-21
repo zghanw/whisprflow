@@ -1,0 +1,2 @@
+# Text files use LF in the working tree on every system (the linter expects LF, and shell scripts break with CRLF); git detects binaries itself
+* text=auto eol=lf
