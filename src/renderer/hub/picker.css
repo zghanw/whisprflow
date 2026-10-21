@@ -104,8 +104,6 @@
 .picker {
   position-area: block-end span-inline-start;
   position-try-fallbacks: flip-block;
-  /* Grows out of the button's corner it hangs from, so it reads as coming from that button (flipped above, it still grows from the top: a rare case) */
-  transform-origin: top right;
   inset: auto;
   width: min(27rem, 100vw - 2rem);
   margin: 0.5rem 0;
