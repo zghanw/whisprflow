@@ -145,6 +145,10 @@
   # ---------- Install ----------
 
   function Get-Package {
+    # A run cut off midway (the window closed while unpacking) can't clean up after itself and leaves a full unpacked copy behind: clear those first
+    Get-ChildItem -LiteralPath $script:HomeDir -Directory -Force -Filter '.install.*' -ErrorAction SilentlyContinue | ForEach-Object {
+      Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction SilentlyContinue
+    }
     $script:TmpDir = Join-Path $script:HomeDir ".install.$([guid]::NewGuid().ToString('N').Substring(0, 8))"
     New-Item -ItemType Directory -Path $script:TmpDir | Out-Null
     $zip = Join-Path $script:TmpDir $Archive
