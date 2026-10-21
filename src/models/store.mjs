@@ -13,11 +13,13 @@ import {
 import { dirname, join } from "node:path";
 import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
-import { DEFAULT_SOURCE, downloadSize, downloadUrls } from "./catalog.mjs";
+import { chipOf, DEFAULT_SOURCE, downloadSize, downloadUrls } from "./catalog.mjs";
+import { installRuntime as installPythonRuntime, RUNTIME_STAMP } from "./runtime.mjs";
 
 // Model store: downloads the catalog's (catalog.mjs) models to this computer, verifies, lists, and deletes them. The app and the CLI both use it.
 // One directory per model, <store>/<model id>/, with files at their catalog paths. Each file is written as .part and renamed only once its sha256 matches;
 // when all are in, a receipt .complete.json is written (the pinned commit and every file's sha256). Installed means a receipt that matches the catalog.
+// A model with a runtime (runtime.mjs) has it installed after its files and before the receipt; the receipt then also names the runtime's pins.
 // Download addresses are tried in turn: the user's chosen source first, the others after (downloadUrls in catalog.mjs).
 // Only Node's built-in fetch and file APIs, so it behaves the same on every OS.
 
@@ -31,6 +33,7 @@ const receiptOf = (model) => ({
   id: model.id,
   revision: model.origin.revision,
   files: Object.fromEntries(Object.values(model.files).map((file) => [file.path, file.sha256])),
+  ...(model.runtime ? { runtime: RUNTIME_STAMP } : {}),
 });
 
 /**
@@ -39,8 +42,15 @@ const receiptOf = (model) => ({
  * @param {typeof globalThis.fetch} [options.fetch] replaced by a fake in tests
  * @param {string} [options.source] which download source to try first (SOURCES in catalog.mjs, modelSource in settings)
  * @param {number} [options.stallMs] how long without data counts as stalled; shortened in tests
+ * @param {typeof installPythonRuntime} [options.installRuntime] replaced by a fake in tests
  */
-export function createModelStore({ dir, fetch = globalThis.fetch, source = DEFAULT_SOURCE, stallMs = STALL_MS }) {
+export function createModelStore({
+  dir,
+  fetch = globalThis.fetch,
+  source = DEFAULT_SOURCE,
+  stallMs = STALL_MS,
+  installRuntime = installPythonRuntime,
+}) {
   const dirOf = (model) => join(dir, model.id);
 
   function isInstalled(model) {
@@ -140,17 +150,28 @@ export function createModelStore({ dir, fetch = globalThis.fetch, source = DEFAU
         });
         done += file.size;
       }
+      if (model.runtime) {
+        await installRuntime({
+          model,
+          dir: dirOf(model),
+          chip: chipOf(),
+          signal,
+          onProgress: (fraction) =>
+            onProgress?.({ received: done + Math.round(fraction * model.runtime.bytes), total }),
+        });
+      }
       writeFileSync(join(dirOf(model), RECEIPT), JSON.stringify(receiptOf(model), null, 2));
       return dirOf(model);
     },
 
     /**
-     * Bytes still to download: files not yet in place, at their catalog sizes (content is not checked here; downloading checks it). Used for the disk check
+     * Bytes still to download: files not yet in place, at their catalog sizes (content is not checked here; downloading checks it), plus the runtime
+     * until the model is installed (each install starts it over). Used for the disk check
      */
     missingBytes(model) {
       return Object.values(model.files)
         .filter((file) => !existsSync(join(dirOf(model), file.path)))
-        .reduce((sum, file) => sum + file.size, 0);
+        .reduce((sum, file) => sum + file.size, model.runtime && !isInstalled(model) ? model.runtime.bytes : 0);
     },
 
     /** Deletes a model's whole directory. Does nothing if it was never installed */

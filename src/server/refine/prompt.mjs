@@ -25,7 +25,12 @@ export function editingRules(terms = [], { tone = false } = {}) {
     `- Apply the speaker's explicit self-corrections, keeping only the final intent ("meet at 2pm actually make it 3" becomes "meet at 3pm").`,
     "- Fix punctuation, capitalization, and clear grammar slips.",
     "- If the speaker enumerates items, format them as a list.",
-    ...(terms.length > 0 ? [`- Prefer these spellings for names and jargon: ${terms.join(", ")}.`] : []),
+    // Said this way (measured on qwen3:4b-instruct), a misheard term like "oh llama" is written as listed, and words that only sound close stay
+    ...(terms.length > 0
+      ? [
+          `- The user's own names and terms: ${terms.join(", ")}. A word in the transcript that sounds like one of them is that term misheard: write it as listed.`,
+        ]
+      : []),
     ...(tone ? [TONE_RULE] : []),
     `Never paraphrase, reword${tone ? " (beyond contractions)" : ""}, restructure, shorten, or expand. Every word you keep must be the speaker's own. Keep the speaker's language; do not translate.`,
   ].join("\n");

@@ -190,3 +190,52 @@ test("delete removes the whole directory and the list entry; deleting something 
   assert.deepEqual(store.installed(), []);
   store.remove(MODEL);
 });
+
+test("a model with a runtime: the runtime installs after the files and before the receipt, its progress continues the files', and it counts as missing until installed", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "whisprflow-models-"));
+  dirs.push(dir);
+  const withRuntime = { ...MODEL, runtime: { bytes: 1000 } };
+  const installs = [];
+  const installRuntime = async ({ model, dir: where, signal, onProgress }) => {
+    installs.push({ model: model.id, where, files: existsSync(join(where, "a.onnx")), signal });
+    assert.equal(store.isInstalled(withRuntime), false, "no receipt while the runtime installs");
+    onProgress(0.5);
+    onProgress(1);
+  };
+  const fetch = async (url) => new Response(BYTES[pathOf(url)]);
+  const store = createModelStore({ dir, fetch, installRuntime });
+  const files = BYTES["a.onnx"].length + 7;
+  assert.equal(store.missingBytes(withRuntime), files + 1000);
+
+  const progress = [];
+  const controller = new AbortController();
+  await store.install(withRuntime, { signal: controller.signal, onProgress: (p) => progress.push(p) });
+  assert.deepEqual(installs, [
+    { model: "fake-asr", where: join(dir, "fake-asr"), files: true, signal: controller.signal },
+  ]);
+  assert.deepEqual(progress.slice(-2), [
+    { received: files + 500, total: files + 1000 },
+    { received: files + 1000, total: files + 1000 },
+  ]);
+  assert.equal(store.isInstalled(withRuntime), true);
+  assert.equal(store.missingBytes(withRuntime), 0);
+  // The receipt names the runtime's pins: the same files without the runtime aren't this install
+  assert.match(readFileSync(join(dir, "fake-asr", ".complete.json"), "utf8"), /"runtime": "fermion-research /);
+  assert.equal(store.isInstalled(MODEL), false);
+});
+
+test("a runtime that fails to install leaves no receipt, so the next try installs it again", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "whisprflow-models-"));
+  dirs.push(dir);
+  const withRuntime = { ...MODEL, runtime: { bytes: 1000 } };
+  const fetch = async (url) => new Response(BYTES[pathOf(url)]);
+  const failing = createModelStore({
+    dir,
+    fetch,
+    installRuntime: async () => {
+      throw new Error("uv exited with code 2");
+    },
+  });
+  await assert.rejects(failing.install(withRuntime), /uv exited with code 2/);
+  assert.equal(failing.isInstalled(withRuntime), false);
+});

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { DEFAULT_TRANSCRIBER } from "../../src/models/catalog.mjs";
 import { loadConfig } from "../../src/server/config.mjs";
 
 test("native mode with only a Gemini key: everything else uses defaults, listening on this computer only", () => {
@@ -99,7 +100,7 @@ test("with nothing set it is local mode: the default on-device model and Ollama 
     port: 8790,
     route: {
       mode: "local",
-      transcriber: "qwen3-asr-0.6b-q8",
+      transcriber: DEFAULT_TRANSCRIBER,
       polish: { vendor: "ollama", model: "qwen3:4b-instruct" },
       customUrl: null,
     },

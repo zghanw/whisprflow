@@ -16,7 +16,8 @@ import { Cancelled } from "../../src/cli/ask-secret.mjs";
 import { run } from "../../src/cli/main.mjs";
 import { NotRunningError, TimeoutError } from "../../src/control.mjs";
 import { createTranslator, LocalizedError, msg } from "../../src/i18n/index.mjs";
-import { downloadSize, findModel } from "../../src/models/catalog.mjs";
+import { DEFAULT_TRANSCRIBER, downloadSize, findModel, MODELS } from "../../src/models/catalog.mjs";
+import { RUNTIME_STAMP } from "../../src/models/runtime.mjs";
 import { CHAT_VENDORS } from "../../src/server/chat/vendors.mjs";
 import { openHistory } from "../../src/storage/history.mjs";
 import { keyFile, resolvePaths } from "../../src/storage/paths.mjs";
@@ -330,12 +331,16 @@ function harness({
 }
 
 /** An on-device model is downloaded: writes a receipt like the model store does (the CLI only reads receipts, never model files) */
-function haveModel(id = "qwen3-asr-0.6b-q8") {
+function haveModel(id = DEFAULT_TRANSCRIBER) {
   const model = findModel(id);
   const where = join(paths.modelsDir, id);
   mkdirSync(where, { recursive: true });
   const files = Object.fromEntries(Object.values(model.files).map((file) => [file.path, file.sha256]));
-  writeFileSync(join(where, ".complete.json"), JSON.stringify({ id, revision: model.origin.revision, files }));
+  const runtime = model.runtime ? { runtime: RUNTIME_STAMP } : {};
+  writeFileSync(
+    join(where, ".complete.json"),
+    JSON.stringify({ id, revision: model.origin.revision, files, ...runtime }),
+  );
 }
 
 /** Pretends a key was saved earlier */
@@ -399,7 +404,7 @@ test("first use: asks which vendor, grouped by mode, local first; picking Ollama
   assert.equal(code, 0, output.out + output.err);
   assert.match(
     questions[0],
-    /local mode.*850 MB[\s\S]*1.*Ollama.*no key needed[\s\S]*native mode[\s\S]*2.*Gemini[\s\S]*3.*OpenAI[\s\S]*4/,
+    /local mode.*\d+ MB[\s\S]*1.*Ollama.*no key needed[\s\S]*native mode[\s\S]*2.*Gemini[\s\S]*3.*OpenAI[\s\S]*4/,
   );
   assert.match(questions[0], /custom\/<model> --url/);
   assert.deepEqual([saved("mode"), saved("polish")], ["local", "ollama/qwen3:4b-instruct"]);
@@ -2046,10 +2051,10 @@ const LOCAL_READY = {
   mode: "local",
   model: null,
   thinking: null,
-  transcriber: "qwen3-asr-0.6b-q8",
+  transcriber: DEFAULT_TRANSCRIBER,
   polish: "ollama/qwen3:4b-instruct",
   key: { state: "ready", source: "none", problem: null },
-  localModel: { state: "ready", model: "qwen3-asr-0.6b-q8", backend: "MTL0" },
+  localModel: { state: "ready", model: DEFAULT_TRANSCRIBER, backend: "MTL0" },
 };
 
 /** Private mode: no key, only an on-device model */
@@ -2067,7 +2072,7 @@ test("whisprflow mode private asks for no key and switches once the model is dow
   assert.equal(await whisprflow("mode", "private"), 0);
   assert.deepEqual(asked, []);
   assert.deepEqual(daemon.requests.find(({ cmd }) => cmd === "set-mode").params, { mode: "private", changes: {} });
-  assert.match(output.out, /qwen3-asr-0\.6b-q8/);
+  assert.ok(output.out.includes(DEFAULT_TRANSCRIBER), output.out);
 
   const panel = harness({ daemon: fakeDaemon({ running: PRIVATE_READY }) });
   assert.equal(await panel.whisprflow("status"), 0);
@@ -2082,7 +2087,7 @@ test("whisprflow transcriber in private mode changes its own setting and leaves 
   assert.equal(await whisprflow("transcriber", "qwen3-asr-0.6b-int8"), 0);
   const settings = resolveSettings({ file: paths.settingsFile, env: {} });
   assert.equal(settings.privateTranscriber.value, "qwen3-asr-0.6b-int8");
-  assert.equal(settings.transcriber.value, "qwen3-asr-0.6b-q8");
+  assert.equal(settings.transcriber.value, DEFAULT_TRANSCRIBER);
 
   assert.equal(await whisprflow("key"), 2);
   assert.match(output.err, /doesn't use a key/);
@@ -2104,7 +2109,7 @@ test("mode lists the modes and the models each uses, marks the one in use, and s
   const { whisprflow, output } = harness();
   assert.equal(await whisprflow("mode"), 0);
   assert.match(output.out, /● native\s+.*Gemini gemini-3\.6-flash/);
-  assert.match(output.out, /\n {4}local\s+.*qwen3-asr-0\.6b-q8 → Ollama qwen3:4b-instruct/);
+  assert.match(output.out, new RegExp(`\\n {4}local\\s+.*${DEFAULT_TRANSCRIBER} → Ollama qwen3:4b-instruct`));
   assert.match(output.out, /whisprflow mode local/);
   assert.match(output.out, /whisprflow model\b/);
   assert.match(output.out, /whisprflow transcriber/);
@@ -2119,7 +2124,7 @@ test("mode <mode> needing no key (Ollama cleanup) switches the running one at on
   assert.equal(asked.length, 0);
   assert.deepEqual(daemon.requests.at(-1), { cmd: "set-mode", params: { mode: "local", changes: {} } });
   assert.ok(!daemon.calls.includes("stop"));
-  assert.match(output.out, /local mode: qwen3-asr-0\.6b-q8 → Ollama qwen3:4b-instruct/);
+  assert.ok(output.out.includes(`local mode: ${DEFAULT_TRANSCRIBER} → Ollama qwen3:4b-instruct`), output.out);
   assert.match(output.out, /Switched, no restart needed/);
 });
 
@@ -2215,11 +2220,12 @@ test("transcriber lists on-device models (step one) with size, download state, a
   haveModel("qwen3-asr-0.6b-int8");
   const { whisprflow, output } = harness();
   assert.equal(await whisprflow("transcriber"), 0);
-  assert.match(output.out, /● qwen3-asr-0\.6b-q8\s+Qwen3-ASR 0\.6B \(Q8_0\)\s+850 MB\s+/);
+  assert.match(output.out, new RegExp(`● ${DEFAULT_TRANSCRIBER} `));
+  assert.match(output.out, / {4}qwen3-asr-0\.6b-q8\s+Qwen3-ASR 0\.6B \(Q8_0\)\s+850 MB\s+/);
   assert.match(output.out, /qwen3-asr-0\.6b-int8\s+Qwen3-ASR 0\.6B \(int8\)\s+987 MB\s+/);
-  assert.match(output.out, /1 of 2 downloaded/);
+  assert.match(output.out, new RegExp(`1 of ${MODELS.length} downloaded`));
   assert.match(output.out, /whisprflow transcriber qwen3-asr-0\.6b-int8/);
-  assert.match(output.out, /whisprflow transcriber download qwen3-asr-0\.6b-q8/);
+  assert.ok(output.out.includes(`whisprflow transcriber download ${DEFAULT_TRANSCRIBER}`), output.out);
 
   // With the background running, its report wins (download progress, the last failure)
   const total = downloadSize(findModel("qwen3-asr-0.6b-q8"));
@@ -2295,7 +2301,7 @@ function modelDaemon({ running = LOCAL_READY, outcome = "finish" } = {}) {
         } else views.set(id, { ...view(id), download: null, problem: `${id} didn't download: ${outcome}` });
       }
     }
-    return { ...current, localModels: ["qwen3-asr-0.6b-q8", "qwen3-asr-0.6b-int8"].map(view) };
+    return { ...current, localModels: MODELS.map(({ id }) => view(id)) };
   };
   const request = daemon.request;
   daemon.request = async (cmd, params) => {
@@ -2393,8 +2399,8 @@ test("transcriber check has the background speak a sentence and transcribe it, r
   };
   const { whisprflow, output } = harness({ daemon });
   assert.equal(await whisprflow("transcriber", "check"), 0);
-  assert.deepEqual(daemon.requests.at(-1), { cmd: "check-transcriber", params: { id: "qwen3-asr-0.6b-q8" } });
-  assert.match(output.out, /Qwen3-ASR 0\.6B \(Q8_0\)/);
+  assert.deepEqual(daemon.requests.at(-1), { cmd: "check-transcriber", params: { id: DEFAULT_TRANSCRIBER } });
+  assert.ok(output.out.includes(findModel(DEFAULT_TRANSCRIBER).name), output.out);
   assert.match(output.out, /The meeting is at three this afternoon\./);
   assert.match(output.out, /0\.3 ?s/);
   assert.match(output.out, /1\.8 ?s/);
@@ -2435,9 +2441,9 @@ test("transcriber delete confirms first; --yes skips it; no way to ask and no --
   assert.match(sure.output.out, /987 MB/);
   assert.equal(existsSync(join(paths.modelsDir, "qwen3-asr-0.6b-int8")), false);
 
-  haveModel("qwen3-asr-0.6b-q8");
+  haveModel();
   const inUse = harness({ daemon: modelDaemon() });
-  assert.equal(await inUse.whisprflow("transcriber", "delete", "qwen3-asr-0.6b-q8", "--yes"), 1);
+  assert.equal(await inUse.whisprflow("transcriber", "delete", DEFAULT_TRANSCRIBER, "--yes"), 1);
   assert.match(inUse.output.err, /in use and can't be deleted/);
 
   const nothing = harness();
@@ -2451,10 +2457,10 @@ test("transcriber delete without the background deletes it itself; the model loc
   assert.equal(await idle.whisprflow("transcriber", "delete", "qwen3-asr-0.6b-int8", "--yes"), 0);
   assert.deepEqual(idle.local.removed, ["qwen3-asr-0.6b-int8"]);
 
-  haveModel("qwen3-asr-0.6b-q8");
+  haveModel();
   writeFileSync(paths.settingsFile, JSON.stringify({ mode: "local" }));
   const inUse = harness();
-  assert.equal(await inUse.whisprflow("transcriber", "delete", "qwen3-asr-0.6b-q8", "--yes"), 1);
+  assert.equal(await inUse.whisprflow("transcriber", "delete", DEFAULT_TRANSCRIBER, "--yes"), 1);
   assert.match(inUse.output.err, /in use and can't be deleted/);
   assert.deepEqual(inUse.local.removed, []);
 });

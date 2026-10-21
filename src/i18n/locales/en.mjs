@@ -163,6 +163,7 @@ export default {
       vulkan: "GPU-accelerated (Vulkan)",
       cpu: "runs on CPU alone",
       "zh-en": "strong on mixed Chinese and English",
+      en: "English only",
     },
     chips: {
       "apple-silicon": "Apple silicon",
@@ -396,10 +397,13 @@ export default {
       issue: "Known issue",
       unverified: "Unverified",
       unverifiedTip: "Added from the official docs; not yet called",
+      english: "English only",
+      englishTip: "Transcribes English speech only; Qwen3-ASR covers other languages",
     },
     build: "{backend}",
     buildTip: "Quantization {variant}",
     makers: {
+      nvidia: "NVIDIA",
       qwen: "Qwen",
       gemini: "Gemini",
       openai: "OpenAI",
@@ -484,12 +488,17 @@ export default {
     download: "Download {size}",
     downloading: "Downloading {model}",
     items: {
-      "local-qwen": { name: "On-device + Ollama", desc: "AI cleanup · Nothing uploaded · Free" },
+      "local-phonon": { name: "Fully local", desc: "English · AI cleanup · Nothing uploaded · Free" },
+      "local-qwen": { name: "Local multilingual", desc: "Many languages · AI cleanup · Nothing uploaded · Free" },
       "native-gemini": { name: "Gemini Native", desc: "One step · One key" },
       "native-openai": { name: "OpenAI Native", desc: "One step · One key" },
-      "private-qwen": { name: "Fully On-device", desc: "Nothing uploaded · Free" },
-      "local-qwen-cpu": { name: "On-device + Ollama", desc: "AI cleanup · Nothing uploaded · Free" },
-      "private-qwen-cpu": { name: "Fully On-device", desc: "Nothing uploaded · Free" },
+      "private-phonon": { name: "Private", desc: "English · No cleanup · Nothing uploaded · Free" },
+      "private-qwen": { name: "Private multilingual", desc: "Many languages · No cleanup · Nothing uploaded · Free" },
+      "local-qwen-cpu": { name: "Local multilingual", desc: "Many languages · AI cleanup · Nothing uploaded · Free" },
+      "private-qwen-cpu": {
+        name: "Private multilingual",
+        desc: "Many languages · No cleanup · Nothing uploaded · Free",
+      },
     },
   },
 

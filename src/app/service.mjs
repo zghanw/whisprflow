@@ -122,10 +122,10 @@ export async function startService({
     return download ? { ...local, received: download.received, total: download.total } : local;
   }
 
-  /** The transcriber handed to the local path: if the model isn't loaded yet it says why, instead of leaving the dictation waiting */
+  /** The transcriber handed to the local path: if the model isn't loaded yet it says why, instead of leaving the dictation waiting. The dictionary goes along as hotwords */
   const transcriber = {
     transcribe(samples) {
-      if (loading?.transcriber) return loading.transcriber.transcribe(samples);
+      if (loading?.transcriber) return loading.transcriber.transcribe(samples, { hotwords: dictionary?.terms() ?? [] });
       const view = localView();
       if (view.state === "missing" && view.total) {
         const percent = Math.floor((view.received / view.total) * 100);

@@ -1,3 +1,5 @@
+import { UV_BUILDS } from "./runtime.mjs";
+
 // The on-device model table: the only place model details live. Which models exist, where each file downloads from,
 // sizes and checksums, licenses and original authors, and what machines they suit (tags and measured numbers) all come from here:
 //   downloads and verification (store.mjs), the transcriber process (server/asr/), settings and the CLI, and the app.
@@ -6,7 +8,10 @@
 // Model files are not in the repository: they download to the user's machine on first use. Each origin is pinned to one
 // Hugging Face commit, so the content never changes, and every file is checked against its sha256 after download.
 // files are named by role (encoder, tokens, ...); each runtime adapter maps those names into its config (FAMILIES in server/asr/engines/*.mjs).
+// A file with its own url downloads from there instead of the origin (a tool the model needs, not part of the model).
 // maxSeconds is how much audio one pass accepts, only where there is a limit: longer recordings are split by server/asr/segment.mjs.
+// A model that runs in Python has a runtime (models/runtime.mjs), installed into its directory once its files are in; its bytes count toward the model's size.
+// chips limits a model to the chips its runtime runs on; MODELS holds only the models this machine can run, so nothing else is offered anywhere.
 //
 // To add a model: add an entry to MODELS (its runtime must be registered in server/asr/engines/index.mjs, and family must be one
 // that runtime knows). Add tags and measured numbers once it has been benchmarked.
@@ -38,8 +43,9 @@ export function findSource(id) {
   return SOURCES.find((source) => source.id === id) ?? null;
 }
 
-/** The addresses a file is tried from, in order: the chosen source first, then the others in SOURCES order */
+/** The addresses a file is tried from, in order: the chosen source first, then the others in SOURCES order. A file with its own url has only that */
 export function downloadUrls(model, file, preferred = DEFAULT_SOURCE) {
+  if (file.url) return [file.url];
   const first = findSource(preferred);
   if (!first)
     throw new Error(`No download source named ${preferred}; available: ${SOURCES.map(({ id }) => id).join(" / ")}`);
@@ -68,6 +74,7 @@ export function chipOf(platform = process.platform, arch = process.arch) {
  *   chip      which chip it suits: measured on that chip (in measured) and the right pick there
  *   backend   what it can run on: measured has numbers on that backend
  *   strength  where it beats the others in the list, per the benchmark comparison
+ *   language  the only language it transcribes, from its model card
  */
 export const TAGS = Object.freeze({
   "apple-silicon": "chip",
@@ -76,6 +83,7 @@ export const TAGS = Object.freeze({
   vulkan: "backend",
   cpu: "backend",
   "zh-en": "strength",
+  en: "language",
 });
 
 /**
@@ -93,6 +101,13 @@ const APACHE_LICENSE = Object.freeze({
   url: "https://www.apache.org/licenses/LICENSE-2.0.txt",
 });
 
+const CC_BY_LICENSE = Object.freeze({
+  name: "CC-BY-4.0",
+  url: "https://creativecommons.org/licenses/by/4.0/legalcode.txt",
+});
+
+const THIS_CHIP = chipOf();
+
 const freeze = (model) =>
   Object.freeze({
     ...model,
@@ -100,11 +115,15 @@ const freeze = (model) =>
     files: Object.freeze(model.files),
     tags: Object.freeze(model.tags),
     measured: Object.freeze(model.measured.map((entry) => Object.freeze({ run: ROUND1, ...entry }))),
+    ...(model.runtime ? { runtime: Object.freeze(model.runtime) } : {}),
+    ...(model.chips ? { chips: Object.freeze(model.chips) } : {}),
   });
 
 /**
  * Each entry:
  *   id, name, engine (runtime), family (which family within the runtime), maxSeconds (optional)
+ *   runtime   for models that run in Python: bytes, what the runtime and the unpacked model take on disk (optional)
+ *   chips     the only chips it runs on (optional; absent means every chip)
  *   license   the license name and the address of its text
  *   author    the original author's repository for this model (Hugging Face), credited in the UI
  *   origin    where this copy downloads from: repository and pinned commit; notice is a notice file shipped in that repository (optional)
@@ -113,10 +132,38 @@ const freeze = (model) =>
  *   measured  measurements: chip, backend, judge average (0 to 5), median transcription time per recording,
  *             realtime factor (recording length / transcription time), peak memory, and which benchmark round (run)
  *
- * The order is the order shown to users: the default first, GPU-accelerated before CPU-only.
+ * The order is the order shown to users: the default first (the first this machine can run), then GPU-accelerated before CPU-only.
  */
 export const MODELS = Object.freeze(
   [
+    {
+      id: "phonon-2",
+      name: "Phonon-2 0.6B (int6)",
+      engine: "phonon",
+      family: "phonon-2",
+      // Measured on Windows: the environment 761 MB, CPython 63 MB, the unpacked model 178 MB
+      runtime: { bytes: 1_002_000_000 },
+      chips: ["windows-x64", "apple-silicon"],
+      license: CC_BY_LICENSE,
+      author: "nvidia/parakeet-tdt-0.6b-v3",
+      origin: {
+        repo: "FermionResearch/Phonon-2",
+        revision: "7e153e4054c0a10db6d47d6fff5c062d4c77c154",
+        notice: "NOTICE",
+      },
+      files: {
+        archive: {
+          path: "phonon-2.bps.tar.zst",
+          size: 163_515_201,
+          sha256: "98125795b6dda72f5c6eee9ba33d19815df65dcb18b50a357bf9f73c9935309e",
+        },
+        // uv installs the runtime; the build for this chip
+        ...(UV_BUILDS[THIS_CHIP] ? { uv: UV_BUILDS[THIS_CHIP] } : {}),
+      },
+      // English only. Not in the benchmark rounds (mostly Mandarin recordings): on Windows (i5-13500HX, CPU) 10.4 s of speech took 0.42 s
+      tags: ["en"],
+      measured: [],
+    },
     {
       id: "qwen3-asr-0.6b-q8",
       name: "Qwen3-ASR 0.6B (Q8_0)",
@@ -255,11 +302,13 @@ export const MODELS = Object.freeze(
         },
       ],
     },
-  ].map(freeze),
+  ]
+    .map(freeze)
+    .filter((model) => !model.chips || model.chips.includes(THIS_CHIP)),
 );
 
-/** Used when settings name none: the most accurate model in round one. Users can switch */
-export const DEFAULT_TRANSCRIBER = "qwen3-asr-0.6b-q8";
+/** Used when settings name none: the first model this machine can run (Phonon-2 where it runs, else Qwen3-ASR). Users can switch */
+export const DEFAULT_TRANSCRIBER = MODELS[0].id;
 
 /** @returns {(typeof MODELS)[number] | null} */
 export function findModel(id) {
@@ -269,9 +318,9 @@ export function findModel(id) {
 /** Who made it: the organization of the author's repository, lowercased (qwen). The UI picks the icon by it */
 export const makerOf = (model) => model.author.split("/")[0].toLowerCase();
 
-/** Total bytes a model downloads */
+/** Total bytes a model takes: its files, plus its runtime when it has one */
 export function downloadSize(model) {
-  return Object.values(model.files).reduce((sum, file) => sum + file.size, 0);
+  return Object.values(model.files).reduce((sum, file) => sum + file.size, model.runtime?.bytes ?? 0);
 }
 
 /** Measurements on a chip, fastest first; empty when never measured */

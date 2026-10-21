@@ -38,6 +38,10 @@ Licensed under the Creative Commons Attribution 4.0 International License
 
 - Model: https://huggingface.co/FermionResearch/Phonon-2
 - The `fermion-research` runtime is licensed under the Apache License 2.0.
+- The runtime is installed with uv by Astral (MIT or Apache License 2.0,
+  https://github.com/astral-sh/uv), which downloads CPython (Python Software
+  Foundation License) and the Python packages `fermion-research` depends on,
+  each under its own license.
 
 ### Qwen3-ASR 0.6B
 

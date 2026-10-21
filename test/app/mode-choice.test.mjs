@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { summarizeSetup } from "../../src/app/setup-state.mjs";
 import { createTranslator } from "../../src/i18n/index.mjs";
+import { DEFAULT_TRANSCRIBER } from "../../src/models/catalog.mjs";
 import { boot, requests } from "./route-harness.mjs";
 
 // Which recognition mode to use is the user's call; whether it works is state, and the two stay apart (app/modes.mjs).
@@ -11,7 +12,7 @@ import { boot, requests } from "./route-harness.mjs";
 const en = createTranslator("en");
 /** Native with nothing else set and no key saved: the hardest place to switch away from */
 const FRESH = { mode: "native" };
-const QWEN = "qwen3-asr-0.6b-q8";
+const ON_DEVICE = DEFAULT_TRANSCRIBER;
 const CUSTOM = { polish: "custom/qwen3:8b", customUrl: "http://x.example/v1" };
 
 /** Waits for the on-device model to load (the fake loader is asynchronous) */
@@ -43,7 +44,7 @@ test("native, model not downloaded: switching to private takes effect at once an
   assert.deepEqual([app.keys.current.state, app.keys.current.source], ["ready", "none"]);
   assert.equal(app.service.localModel.state, "missing");
 
-  installed.push(QWEN);
+  installed.push(ON_DEVICE);
   app.service.modelsChanged();
   assert.equal(await loaded(app), "ready");
 });
@@ -89,7 +90,7 @@ test("modes that aren't ready can still switch back and forth: each time the sta
 });
 
 test("switching to a vendor without a key and to an undownloaded model: both switch, and the state says so", async (t) => {
-  const app = await boot(t, { settings: { mode: "local" }, installed: [QWEN] });
+  const app = await boot(t, { settings: { mode: "local" }, installed: [ON_DEVICE] });
   await app.keys.loadAtStartup();
   assert.equal(app.keys.current.state, "ready");
 

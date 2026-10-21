@@ -108,11 +108,12 @@ function cloudShelf(role, { priceOf }) {
 }
 
 /** Only three tags: factory default, batch evaluated, known issue (wording in models.issues.<issue>) */
-function tagsOf({ isDefault, tested, issue }) {
+function tagsOf({ isDefault, tested, issue, english = false }) {
   return [
     ...(isDefault ? [{ kind: "default" }] : []),
     ...(tested ? [{ kind: "tested" }] : []),
     ...(issue ? [{ kind: "issue", issue }] : []),
+    ...(english ? [{ kind: "english" }] : []),
   ];
 }
 
@@ -139,16 +140,20 @@ function localGroup({ status, chip, freeBytes }) {
         bytes: downloadSize(model),
         license: model.license.name,
         ...(status[model.id] ?? { installed: false, download: null, partial: 0, problem: null }),
-        specs: best
-          ? {
-              zh: best.zh ?? null,
-              mix: best.mix ?? null,
-              minuteSeconds: 60 / best.realtime,
-              memoryGB: best.peakMB / 1000,
-              sizeMB: downloadSize(model) / 1_000_000,
-            }
-          : null,
-        tags: tagsOf({ isDefault: model.id === DEFAULTS.transcribe, tested: false, issue: null }),
+        // Size is known for every model; the rest only once measured on this kind of chip
+        specs: {
+          zh: best?.zh ?? null,
+          mix: best?.mix ?? null,
+          minuteSeconds: best ? 60 / best.realtime : null,
+          memoryGB: best ? best.peakMB / 1000 : null,
+          sizeMB: downloadSize(model) / 1_000_000,
+        },
+        tags: tagsOf({
+          isDefault: model.id === DEFAULTS.transcribe,
+          tested: false,
+          issue: null,
+          english: model.tags.includes("en"),
+        }),
       };
     }),
   };

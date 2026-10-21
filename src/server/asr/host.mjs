@@ -33,7 +33,7 @@ function forkWorker(workerPath) {
  * @param {{ info: Function, warn: Function, error: Function }} request.log
  * @param {string} [request.workerPath] replaced by a fake worker in tests
  * @param {(samples: Float32Array) => number} [request.timeoutFor] the longest one transcription may take in ms; shortened in tests
- * @returns {Promise<{ backend: string, transcribe(samples: Float32Array): Promise<{ text: string }>, dispose(): void }>}
+ * @returns {Promise<{ backend: string, transcribe(samples: Float32Array, o?: { hotwords?: string[] }): Promise<{ text: string }>, dispose(): void }>}
  *   returns once loaded; throws if it can't load (corrupt model files, a runtime that won't load)
  */
 export async function spawnTranscriber({
@@ -110,7 +110,7 @@ export async function spawnTranscriber({
   return {
     backend: first.backend,
 
-    async transcribe(samples) {
+    async transcribe(samples, { hotwords = [] } = {}) {
       if (disposed) throw new Error("The transcriber process is closed");
       const state = await ready();
       const id = nextId++;
@@ -125,7 +125,7 @@ export async function spawnTranscriber({
         }, timeoutFor(samples));
         state.pending.set(id, { resolve, reject, timer });
         // If it crashed at this very moment the channel is already closed, and the exit handler reports this as failed
-        if (state.child.connected) state.child.send({ type: "transcribe", id, samples });
+        if (state.child.connected) state.child.send({ type: "transcribe", id, samples, hotwords });
       });
     },
 

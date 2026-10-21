@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, test } from "node:test";
 import { createTranslator } from "../../src/i18n/index.mjs";
+import { DEFAULT_TRANSCRIBER } from "../../src/models/catalog.mjs";
 import {
   HOTKEY_IDS,
   hotkeyIdsFor,
@@ -39,8 +40,8 @@ test("with no file and no environment, everything is a default", () => {
     mode: { value: "local", source: "default" },
     model: { value: "gemini/gemini-3.6-flash", source: "default" },
     thinking: { value: "MINIMAL", source: "default" },
-    transcriber: { value: "qwen3-asr-0.6b-q8", source: "default" },
-    privateTranscriber: { value: "qwen3-asr-0.6b-q8", source: "default" },
+    transcriber: { value: DEFAULT_TRANSCRIBER, source: "default" },
+    privateTranscriber: { value: DEFAULT_TRANSCRIBER, source: "default" },
     polish: { value: "ollama/qwen3:4b-instruct", source: "default" },
     customUrl: { value: "", source: "default" },
     modelSource: { value: "original", source: "default" },
@@ -224,7 +225,7 @@ test("Gemini models are saved in the older form too (model name only), so an old
 test("recognition mode: local (on-device plus Ollama) by default; native holds the audio model; local holds the on-device model, the cleanup vendor, and the custom address", () => {
   assert.deepEqual(routeOf(resolveSettings({ file, env: {} })), {
     mode: "local",
-    transcriber: "qwen3-asr-0.6b-q8",
+    transcriber: DEFAULT_TRANSCRIBER,
     polish: { vendor: "ollama", model: "qwen3:4b-instruct" },
     customUrl: null,
   });
@@ -241,7 +242,7 @@ test("recognition mode: local (on-device plus Ollama) by default; native holds t
   assert.deepEqual(settings.customUrl, { value: "https://api.siliconflow.cn/v1", source: "file" });
   assert.deepEqual(routeOf(settings), {
     mode: "local",
-    transcriber: "qwen3-asr-0.6b-q8",
+    transcriber: DEFAULT_TRANSCRIBER,
     polish: { vendor: "custom", model: "Qwen/Qwen3-8B" },
     customUrl: "https://api.siliconflow.cn/v1",
   });
@@ -264,7 +265,7 @@ test("each mode's route reads only its own settings: a route can be built for a 
   assert.equal(settings.mode.value, "local");
   assert.deepEqual(routeOf(settings, "local"), {
     mode: "local",
-    transcriber: "qwen3-asr-0.6b-q8",
+    transcriber: DEFAULT_TRANSCRIBER,
     polish: { vendor: "ollama", model: "llama3.2:3b" },
     customUrl: null,
   });
@@ -281,11 +282,11 @@ test("each mode's own settings: native has the model and thinking level, local t
 
 test("private mode's on-device model is saved apart from local's step one and only takes on-device ids", () => {
   const settings = resolveSettings({ file, env: {} });
-  assert.deepEqual(routeOf(settings, "private"), { mode: "private", transcriber: "qwen3-asr-0.6b-q8" });
+  assert.deepEqual(routeOf(settings, "private"), { mode: "private", transcriber: DEFAULT_TRANSCRIBER });
   saveSetting(file, "privateTranscriber", "qwen3-asr-0.6b-int8");
   const saved = resolveSettings({ file, env: {} });
   assert.equal(routeOf(saved, "private").transcriber, "qwen3-asr-0.6b-int8");
-  assert.equal(routeOf(saved, "local").transcriber, "qwen3-asr-0.6b-q8");
+  assert.equal(routeOf(saved, "local").transcriber, DEFAULT_TRANSCRIBER);
   assert.throws(() => saveSetting(file, "privateTranscriber", "example/cloud-asr"), /qwen3-asr-0\.6b-q8/);
   const fromEnv = resolveSettings({ file, env: { WHISPRFLOW_PRIVATE_TRANSCRIBER: "qwen3-asr-0.6b-q8" } });
   assert.equal(fromEnv.privateTranscriber.value, "qwen3-asr-0.6b-q8");

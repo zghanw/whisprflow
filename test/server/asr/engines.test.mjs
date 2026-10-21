@@ -47,6 +47,19 @@ test("one interface: a fully silent recording never reaches the model and gives 
   assert.deepEqual(await windowed(inner, null).transcribe(tone(3)), { text: "one" });
 });
 
+test("one interface: options such as hotwords reach the adapter with every piece", async () => {
+  const seen = [];
+  const inner = {
+    ...fake(),
+    async transcribe(_samples, options) {
+      seen.push(options);
+      return { text: "x" };
+    },
+  };
+  await windowed(inner, 20).transcribe(concat(tone(15), new Float32Array(RATE), tone(15)), { hotwords: ["Heroku"] });
+  assert.deepEqual(seen, [{ hotwords: ["Heroku"] }, { hotwords: ["Heroku"] }]);
+});
+
 test("Qwen3 on sherpa-onnx: the None it outputs for no speech becomes empty, real text is unchanged", () => {
   const { clean } = SHERPA["qwen3-asr"];
   assert.equal(clean("None"), "");

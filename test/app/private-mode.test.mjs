@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createTranslator } from "../../src/i18n/index.mjs";
+import { DEFAULT_TRANSCRIBER } from "../../src/models/catalog.mjs";
 import { boot, requests } from "./route-harness.mjs";
 
 // Private mode end to end: on-device transcription only, no key from anyone, no requests out (./route-harness.mjs).
@@ -42,7 +43,7 @@ test("switching into private before its model is downloaded still switches; no k
   assert.equal((await app.modes.switchMode("private")).ok, true);
   assert.equal(app.service.route.mode, "private");
   assert.equal(app.keys.current.source, "none");
-  assert.deepEqual(app.service.localModel, { state: "missing", model: "qwen3-asr-0.6b-q8" });
+  assert.deepEqual(app.service.localModel, { state: "missing", model: DEFAULT_TRANSCRIBER });
 });
 
 test("changing the model in private saves its own setting and leaves local's step one alone; non-catalog models are refused", async (t) => {
@@ -68,7 +69,7 @@ test("saving a key and deleting models in private: a key must name its vendor; t
   assert.deepEqual(await app.keys.save("oa-good", { provider: "openai" }), { ok: true });
   assert.equal(app.keys.current.source, "none", "saving another vendor's key doesn't change the no-key state");
 
-  const removed = await app.modes.removeModel("qwen3-asr-0.6b-q8");
+  const removed = await app.modes.removeModel(DEFAULT_TRANSCRIBER);
   assert.equal(removed.ok, false);
   assert.equal((await app.modes.removeModel("qwen3-asr-0.6b-int8")).ok, true);
 });

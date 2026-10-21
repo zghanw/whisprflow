@@ -11,6 +11,12 @@
 export const PRESETS = Object.freeze(
   [
     {
+      id: "local-phonon",
+      mode: "local",
+      settings: { transcriber: "phonon-2", polish: "ollama/qwen3:4b-instruct" },
+      chips: ["apple-silicon", "windows-x64"],
+    },
+    {
       id: "local-qwen",
       mode: "local",
       settings: { transcriber: "qwen3-asr-0.6b-q8", polish: "ollama/qwen3:4b-instruct" },
@@ -25,6 +31,12 @@ export const PRESETS = Object.freeze(
       id: "native-openai",
       mode: "native",
       settings: { model: "openai/gpt-audio-mini" },
+    },
+    {
+      id: "private-phonon",
+      mode: "private",
+      settings: { privateTranscriber: "phonon-2" },
+      chips: ["apple-silicon", "windows-x64"],
     },
     {
       id: "private-qwen",

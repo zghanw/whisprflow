@@ -60,8 +60,9 @@ export async function runScreens({ showOnboarding, onboardingWindow, showHub, hu
     await run(hub, `document.querySelector('.nav-item[data-route="models"]').click()`);
     await sleep(800);
     await capture(hub, "hub-models");
-    // The Polish and Keys tabs: the third and fourth tab
+    // The Transcribe, Polish, and Keys tabs: the second to fourth tab
     for (const [index, name] of [
+      [1, "hub-models-transcribe"],
       [2, "hub-models-polish"],
       [3, "hub-models-keys"],
     ]) {

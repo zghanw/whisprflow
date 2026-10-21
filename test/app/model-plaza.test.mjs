@@ -7,12 +7,14 @@ import { CHAT_VENDORS } from "../../src/server/chat/vendors.mjs";
 import { PROVIDERS } from "../../src/server/providers/index.mjs";
 import { patchSettings, resolveSettings, routeOf } from "../../src/storage/settings.mjs";
 
+const INSTALLED = { installed: true, download: null, partial: 0, problem: null };
+
 const view = async (overrides = {}) =>
   describePlaza({
     mode: "local",
     chosen: { native: DEFAULTS.native, transcriber: DEFAULTS.transcribe, polish: DEFAULTS.polish, customUrl: "" },
     keys: { gemini: "env" },
-    status: { "qwen3-asr-0.6b-q8": { installed: true, download: null, partial: 0, problem: null } },
+    status: { [DEFAULTS.transcribe]: INSTALLED, "qwen3-asr-0.6b-q8": INSTALLED },
     chip: "apple-silicon",
     freeBytes: 446e9,
     prices: await loadPriceBook(),
@@ -77,10 +79,13 @@ test("transcription: the on-device group with specs from the fastest measurement
   assert.equal(q8.installed, true);
   assert.equal(q8.specs.zh, 4.32);
   assert.ok(Math.abs(q8.specs.minuteSeconds - 60 / 67.5) < 1e-9);
+  assert.deepEqual(q8.tags, []);
   assert.deepEqual(
-    q8.tags.map(({ kind }) => kind),
-    ["default"],
+    local.items.find(({ choice }) => choice === DEFAULTS.transcribe).tags.map(({ kind }) => kind),
+    ["default", "english"],
   );
+  // Size shows for every model, measured or not
+  assert.ok(local.items.every(({ specs }) => specs.sizeMB > 0));
   // Models not installed are still listed, marked as not installed
   assert.equal(local.items.find(({ choice }) => choice === "qwen3-asr-0.6b-int8").installed, false);
 });
@@ -176,10 +181,12 @@ test("presets: those suiting this machine in recommended order, each with its mo
   });
   assert.deepEqual(
     presets.map(({ id }) => id),
-    ["local-qwen", "native-gemini", "native-openai", "private-qwen"],
+    ["local-phonon", "local-qwen", "native-gemini", "native-openai", "private-phonon", "private-qwen"],
   );
-  const [local, native, openai, privately] = presets;
+  const [english, local, native, openai, , privately] = presets;
 
+  assert.equal(english.active, false);
+  assert.deepEqual(english.needs, []);
   assert.equal(local.active, true);
   assert.deepEqual(local.needs, []);
   assert.deepEqual(

@@ -43,11 +43,27 @@ test("catalog: every file is a relative path in the repository with a size and s
       assert.ok(Number.isInteger(file.size) && file.size > 0, `${model.id} ${file.path}`);
     }
   }
-  const sizes = Object.values(MODELS[0].files).map((file) => file.size);
-  assert.equal(
-    downloadSize(MODELS[0]),
-    sizes.reduce((a, b) => a + b, 0),
-  );
+  for (const model of MODELS) {
+    const files = Object.values(model.files).reduce((sum, file) => sum + file.size, 0);
+    assert.equal(downloadSize(model), files + (model.runtime?.bytes ?? 0), model.id);
+  }
+});
+
+test("Phonon-2 is the default on Windows (x64): English only, a Python runtime counted in its size, and uv for this chip from its own release address", () => {
+  const phonon = findModel("phonon-2");
+  assert.equal(DEFAULT_TRANSCRIBER, "phonon-2");
+  assert.deepEqual(tagsOn(phonon, "windows-x64"), ["en"]);
+  assert.equal(en.text(tagTexts(["en"])[0]), "English only");
+  assert.ok(phonon.runtime.bytes > 900_000_000);
+  assert.deepEqual(phonon.chips, ["windows-x64", "apple-silicon"]);
+  assert.equal(phonon.files.uv.path, "uv-x86_64-pc-windows-msvc.zip");
+  assert.deepEqual(downloadUrls(phonon, phonon.files.uv, "mirror"), [
+    "https://github.com/astral-sh/uv/releases/download/0.12.23/uv-x86_64-pc-windows-msvc.zip",
+  ]);
+  assert.deepEqual(downloadUrls(phonon, phonon.files.archive), [
+    "https://huggingface.co/FermionResearch/Phonon-2/resolve/7e153e4054c0a10db6d47d6fff5c062d4c77c154/phonon-2.bps.tar.zst",
+    "https://hf-mirror.com/FermionResearch/Phonon-2/resolve/7e153e4054c0a10db6d47d6fff5c062d4c77c154/phonon-2.bps.tar.zst",
+  ]);
 });
 
 test("catalog: licenses have a name and a text address, and the original author's repository is credited", () => {

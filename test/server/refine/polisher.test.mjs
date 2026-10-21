@@ -225,10 +225,13 @@ test("the dictionary's terms go in the prompt as preferred spellings, read fresh
   );
   const polisher = polisherWith(client, { dictionary });
   await polisher.polish("we use kubernetes", {});
-  assert.match(requests[0].system, /Prefer these spellings for names and jargon: Kubernetes\./);
+  assert.match(
+    requests[0].system,
+    /The user's own names and terms: Kubernetes\. A word .* sounds like one of them is that term misheard/,
+  );
   terms.push("WhisprFlow");
   await polisher.polish("we use whisper flow", {});
-  assert.match(requests[1].system, /Prefer these spellings for names and jargon: Kubernetes, WhisprFlow\./);
+  assert.match(requests[1].system, /The user's own names and terms: Kubernetes, WhisprFlow\./);
 });
 
 test("on-device cleanup learns from the finished text in the background; a cloud service never does", async () => {

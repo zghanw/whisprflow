@@ -26,6 +26,15 @@ test("the model loads in a child process; samples go over as a Float32Array and 
   await assert.rejects(transcriber.transcribe(new Float32Array(8)), /closed/);
 });
 
+test("hotwords go over with the samples; none means an empty list", async () => {
+  const transcriber = await spawn();
+  assert.deepEqual(await transcriber.transcribe(new Float32Array(8), { hotwords: ["Heroku", "Kubernetes"] }), {
+    text: "fake-model:8 [Heroku, Kubernetes]",
+  });
+  assert.deepEqual(await transcriber.transcribe(new Float32Array(8)), { text: "fake-model:8" });
+  transcriber.dispose();
+});
+
 test("a model that will not load is an error naming the model", async () => {
   await assert.rejects(spawn({ options: { failLoad: true } }), /Couldn't load model fake-model: .*corrupt model file/s);
 });

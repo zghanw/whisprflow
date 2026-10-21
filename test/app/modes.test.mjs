@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, test } from "node:test";
 import { createModeSwitch } from "../../src/app/modes.mjs";
 import { createTranslator, msg } from "../../src/i18n/index.mjs";
+import { DEFAULT_TRANSCRIBER, findModel, MODELS } from "../../src/models/catalog.mjs";
 import { resolveSettings, routeOf, saveSetting } from "../../src/storage/settings.mjs";
 
 const en = createTranslator("en");
@@ -28,7 +29,7 @@ const saved = (name) => resolveSettings({ file, env: {} })[name].value;
 function setup({
   verdict = () => ({ ok: true }),
   env = {},
-  installed = ["qwen3-asr-0.6b-q8", "qwen3-asr-0.6b-int8"],
+  installed = MODELS.map(({ id }) => id),
   transcribe = async () => ({
     text: "The meeting is at three this afternoon.",
     transcribeMs: 300,
@@ -88,7 +89,7 @@ test("switching modes builds the route from that mode's own settings, switches a
     {
       switchRoute: {
         mode: "local",
-        transcriber: "qwen3-asr-0.6b-q8",
+        transcriber: DEFAULT_TRANSCRIBER,
         polish: { vendor: "ollama", model: "llama3.2:3b" },
         customUrl: null,
       },
@@ -205,7 +206,7 @@ test("local's two steps in native mode can not change (they are not selectable):
   const second = await modes.setPolish("ollama/llama3.2:3b");
   assert.match(en.text(second.problem), /polishing model \(step 2\).*local mode/);
   assert.deepEqual(calls, []);
-  assert.equal(saved("transcriber"), "qwen3-asr-0.6b-q8");
+  assert.equal(saved("transcriber"), DEFAULT_TRANSCRIBER);
   assert.equal(saved("polish"), "ollama/qwen3:4b-instruct");
 });
 
@@ -273,15 +274,15 @@ test("changing to an undownloaded on-device model in local still changes and sav
 test("deleting an on-device model: the one in use is refused with a hint to switch first; others are deleted (one only remembered by settings in native mode counts as unused)", async () => {
   saveSetting(file, "mode", "local");
   const { modes, calls } = setup();
-  const refused = await modes.removeModel("qwen3-asr-0.6b-q8");
+  const refused = await modes.removeModel(DEFAULT_TRANSCRIBER);
   assert.equal(refused.ok, false);
-  assert.match(en.text(refused.problem), /Qwen3-ASR 0\.6B \(Q8_0\) is in use and can't be deleted/);
+  assert.ok(en.text(refused.problem).includes(`${findModel(DEFAULT_TRANSCRIBER).name} is in use and can't be deleted`));
   assert.deepEqual(await modes.removeModel("qwen3-asr-0.6b-int8"), { ok: true });
   assert.deepEqual(calls, [{ remove: "qwen3-asr-0.6b-int8" }]);
 
   saveSetting(file, "mode", "native");
   const native = setup();
-  assert.deepEqual(await native.modes.removeModel("qwen3-asr-0.6b-q8"), { ok: true });
+  assert.deepEqual(await native.modes.removeModel(DEFAULT_TRANSCRIBER), { ok: true });
   assert.equal((await native.modes.removeModel("nope")).ok, false);
 });
 

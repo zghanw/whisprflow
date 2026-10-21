@@ -421,8 +421,8 @@ export function createModels({ refresh, pickMode }) {
         text: t("plaza.tags.issue"),
       });
     }
-    // Unverified is neutral: gray, just stating the fact, not a problem
-    const tone = { default: "accent", tested: "ok", unverified: null }[tag.kind];
+    // Unverified and English only are neutral: gray, just stating the fact, not a problem
+    const tone = { default: "accent", tested: "ok", unverified: null, english: null }[tag.kind];
     return h("span", {
       class: "tag",
       "data-tone": tone,
@@ -533,19 +533,7 @@ export function createModels({ refresh, pickMode }) {
   function actionFor(role, group, item) {
     const key = rowKey(role, group, item);
     const busy = state.busy === key;
-    if (isChosen(role, group, item)) {
-      return isLive(role)
-        ? h("span", { class: "state-box block", "data-tone": "accent" }, svg("i-check"), t("plaza.inUse"))
-        : h(
-            "span",
-            {
-              class: "state-box block",
-              "data-tone": "standby",
-              title: t("plaza.chosenTip", { mode: modeName(ROLES[role].mode) }),
-            },
-            t("plaza.chosen"),
-          );
-    }
+    // Even the chosen one: an undownloaded model's only way forward is the download
     if (group.kind === "local" && !item.installed) {
       return item.download
         ? h("button", {
@@ -567,6 +555,19 @@ export function createModels({ refresh, pickMode }) {
             },
             svg("i-download"),
             t("plaza.actions.download"),
+          );
+    }
+    if (isChosen(role, group, item)) {
+      return isLive(role)
+        ? h("span", { class: "state-box block", "data-tone": "accent" }, svg("i-check"), t("plaza.inUse"))
+        : h(
+            "span",
+            {
+              class: "state-box block",
+              "data-tone": "standby",
+              title: t("plaza.chosenTip", { mode: modeName(ROLES[role].mode) }),
+            },
+            t("plaza.chosen"),
           );
     }
     if (!usable(role, group, item) || !setup.switchable) {

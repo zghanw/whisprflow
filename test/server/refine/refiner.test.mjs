@@ -355,5 +355,5 @@ test("the native path also prefers the dictionary's spellings (no learning: that
   const client = fakeClient(["We deploy with Kubernetes."]);
   const { refiner } = refinerWith(client, { audioTypes: ["audio/webm"], dictionary: { terms: () => ["Kubernetes"] } });
   await refiner.refine(Buffer.from("rec"), { mimeType: "audio/webm" });
-  assert.match(client.calls[0].systemPrompt, /Prefer these spellings for names and jargon: Kubernetes\./);
+  assert.match(client.calls[0].systemPrompt, /The user's own names and terms: Kubernetes\./);
 });

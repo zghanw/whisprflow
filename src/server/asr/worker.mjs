@@ -4,7 +4,7 @@ import { loadTranscriber } from "./engines/index.mjs";
 // The worker end of the transcriber process: loads the model in the child process started by host.mjs and transcribes on the parent's messages.
 // Messages (Node IPC, advanced serialization, Float32Array passed as is):
 //   parent to child  { type: "load", model, dir, options }      load the model, sent once
-//                    { type: "transcribe", id, samples }        samples: 16 kHz mono Float32Array
+//                    { type: "transcribe", id, samples, hotwords }  samples: 16 kHz mono Float32Array; hotwords: dictionary terms
 //                    { type: "dispose" }                        unload the model and exit
 //   child to parent  { type: "loaded", backend, loadMs, warmupMs } or { type: "failed", message }
 //                    warmupMs: how long the GPU warm-up after loading took (included in loadMs), null when there is none
@@ -36,7 +36,7 @@ export function serveTranscriber(channel, load = loadTranscriber) {
       case "transcribe": {
         try {
           if (!transcriber) throw new Error("The model is not loaded yet");
-          const { text } = await transcriber.transcribe(message.samples);
+          const { text } = await transcriber.transcribe(message.samples, { hotwords: message.hotwords ?? [] });
           channel.send({ type: "result", id: message.id, text });
         } catch (error) {
           channel.send({ type: "error", id: message.id, message: String(error?.stack ?? error) });
