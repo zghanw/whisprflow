@@ -10,6 +10,7 @@
 //   --demo fills an empty history with four months of sample dictations, so the home page and history have something to show (README screenshots)
 // Settings can be given as environment variables, as for the app (WHISPRFLOW_MODE, WHISPRFLOW_POLISH, WHISPRFLOW_THEME, ...):
 //   WHISPRFLOW_POLISH=ollama/llama3.2:1b node scripts/dev/screens.mjs shots   (cleanup model not pulled in Ollama)
+// WHISPRFLOW_SCREENS_SIZE sets the window size, to check a window that isn't maximized: WHISPRFLOW_SCREENS_SIZE=988x685
 // WHISPRFLOW_SCREENS_MEDIA emulates media features, comma-separated:
 //   WHISPRFLOW_SCREENS_MEDIA=prefers-color-scheme=dark,prefers-contrast=more node scripts/dev/screens.mjs shots
 

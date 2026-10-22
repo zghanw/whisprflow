@@ -1,6 +1,7 @@
 /* Popover menus in the main window (Home's recognition mode, mode-picker.mjs; the model page's presets, preset-picker.mjs): a pill button
    that opens a glass popover anchored below it, holding a list of options. The popover uses the native popover (click outside or Esc closes it), positioned by anchor:
    right edge aligned with the button, opening leftward, flipping above when there's no room below. One option per row, aligned however many there are.
+   It is never taller than the room left below the button: in a window too short for every option, the header stays put and the list scrolls.
    Radio marks, tags, notes, and buttons are the standard ones from shared/window.css; this file only does layout. */
 
 /* Each button and its popover share a pair of anchor names */
@@ -118,6 +119,18 @@
     0 24px 60px -20px oklch(0 0 0 / 0.35);
   transform-origin: top right;
   -webkit-app-region: no-drag;
+  /* position-area makes the room below the button the containing block: at most its height, less the margins above and below */
+  max-height: calc(100% - 1rem);
+}
+
+/* Open, it's a column: header and footer keep their height and the list takes the rest. Only when open: display on the closed popover would show it */
+.picker:popover-open {
+  display: flex;
+  flex-direction: column;
+}
+
+.picker > :not(.picker-options) {
+  flex: none;
 }
 
 /* The kind with an extra price column on the right (presets) is wider */
@@ -160,7 +173,50 @@
 
 .picker-options {
   display: grid;
+  align-content: start;
   gap: 0.125rem;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* Where there's more to scroll, the list fades into the header or the bottom edge instead of stopping at a hard line. The fades follow the scroll
+     position, so the top one appears once scrolled down and the bottom one leaves at the end; a list that fits doesn't scroll and never fades */
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    oklch(0 0 0 / 1) var(--fade-top),
+    oklch(0 0 0 / 1) calc(100% - var(--fade-bottom)),
+    transparent
+  );
+  animation: list-fades linear both;
+  animation-timeline: scroll(self);
+}
+
+@property --fade-top {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+@property --fade-bottom {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
+@keyframes list-fades {
+  0% {
+    --fade-top: 0px;
+    --fade-bottom: 1.5rem;
+  }
+  8%,
+  92% {
+    --fade-top: 1.5rem;
+    --fade-bottom: 1.5rem;
+  }
+  100% {
+    --fade-top: 1.5rem;
+    --fade-bottom: 0px;
+  }
 }
 
 /* ---------- One mode: icon, name and description, the models along the route, with the radio mark on the right ---------- */

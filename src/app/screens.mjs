@@ -8,6 +8,12 @@ import { join } from "node:path";
 const OUT_DIR = process.env.WHISPRFLOW_SCREENS_OUT;
 /** Media features to emulate, as name=value pairs separated by commas (prefers-color-scheme=dark,prefers-contrast=more), so dark mode and the
  * accessibility preferences can be checked without changing the system's settings */
+/** A window size to use instead of the default, like 1000x700: how the pages behave in a window that isn't maximized */
+const SIZE =
+  /^(\d+)x(\d+)$/
+    .exec(process.env.WHISPRFLOW_SCREENS_SIZE ?? "")
+    ?.slice(1)
+    .map(Number) ?? null;
 const MEDIA = (process.env.WHISPRFLOW_SCREENS_MEDIA ?? "")
   .split(",")
   .filter(Boolean)
@@ -50,6 +56,7 @@ export async function runScreens({ showOnboarding, onboardingWindow, showHub, hu
   try {
     showOnboarding();
     const onboarding = onboardingWindow();
+    if (SIZE) onboarding.setSize(...SIZE);
     await settled(onboarding);
     // Onboarding resumes past finished steps: go back to the first one
     for (let i = 0; i < 10; i++) {
@@ -80,6 +87,7 @@ export async function runScreens({ showOnboarding, onboardingWindow, showHub, hu
 
     showHub({ route: "home" });
     const hub = hubWindow();
+    if (SIZE) hub.setSize(...SIZE);
     await settled(hub, 1_500);
     await capture(hub, "hub-home");
     await run(hub, `document.getElementById("mode-trigger").click()`);
@@ -105,6 +113,10 @@ export async function runScreens({ showOnboarding, onboardingWindow, showHub, hu
     await run(hub, `document.getElementById("preset-trigger").click()`);
     await sleep(800);
     await capture(hub, "hub-presets");
+    // A window too short for every setup scrolls the list: the end of it
+    await run(hub, `document.getElementById("preset-options").scrollTop = 1e6`);
+    await sleep(400);
+    await capture(hub, "hub-presets-end");
     await run(hub, `document.getElementById("preset-picker").hidePopover()`);
     await run(hub, `document.querySelector('.nav-item[data-route="history"]').click()`);
     await sleep(800);

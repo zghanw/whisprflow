@@ -71,6 +71,7 @@
     --edge: 0 0 0 1px var(--ink-2);
     --ring: 0 0 0 1px var(--ink-2);
     --ring-strong: 0 0 0 2px var(--ink);
+    scrollbar-color: color-mix(in oklch, var(--ink) 65%, transparent) transparent;
   }
 }
 
@@ -78,6 +79,15 @@
 *::before,
 *::after {
   box-sizing: border-box;
+}
+
+/* Scrollbars, the main page's and every scrolling list's: thin, without arrow buttons, a soft thumb in the text color on no track */
+:root {
+  scrollbar-color: color-mix(in oklch, var(--ink) 28%, transparent) transparent;
+}
+
+* {
+  scrollbar-width: thin;
 }
 
 /* Elements with display set override the hidden attribute: let hidden always win */
